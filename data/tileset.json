@@ -1,0 +1,27 @@
+{
+  "tiles": [
+    { "description": "FFFF", "cardinality": 5, "img": "img/FFFF_monastery_01.png", "tag1": "monastery" },
+    { "description": "TTTT", "cardinality": 2, "img": "img/TTTT_01.png" },
+    { "description": "PPPP", "cardinality": 1, "img": "" },
+    { "description": "FTFT", "cardinality": 6, "img": "" },
+    { "description": "PFPF", "cardinality": 9, "img": "img/PFPF_01.png" },
+    { "description": "TPTP", "cardinality": 0, "img": "" },
+    { "description": "FPTP", "cardinality": 4, "img": "img/FPTP_start_01.png", "tag1": "start" },
+    { "description": "FFFP", "cardinality": 3, "img": "" },
+    { "description": "FFPP", "cardinality": 9, "img": "" },
+    { "description": "FFTF", "cardinality": 4, "img": "img/FFTF_01.png" },
+    { "description": "FFTF", "cardinality": 3, "img": "img/FFTF_02.png" },
+    { "description": "FFTT", "cardinality": 4, "img": "img/FFTT_01.png" },
+    { "description": "FTTF", "cardinality": 3, "img": "img/FTTF_01.png" },
+    { "description": "FTTT", "cardinality": 4, "img": "img/FTTT_01.png" },
+    { "description": "FTFP", "cardinality": 1, "img": "" },
+    { "description": "FTPP", "cardinality": 3, "img": "" },
+    { "description": "PPTF", "cardinality": 1, "img": "img/PPTF_01.png" },
+    { "description": "PPTF", "cardinality": 2, "img": "img/PPTF_02.png" },
+    { "description": "PPFP", "cardinality": 4, "img": "img/PPFP_01.png" },
+    { "description": "PPTP", "cardinality": 4, "img": "" },
+    { "description": "PTTT", "cardinality": 3, "img": "" },
+    { "description": "PPTT", "cardinality": 3, "img": "img/PPTT_01.png" },
+    { "description": "PPTT", "cardinality": 3, "img": "img/PPTT_02.png" }
+  ]
+}

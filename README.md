@@ -4,8 +4,13 @@ Carcassonne Map Generator
 ## Usage
 
 ```
-./carcassonne.py
+./carcassonne.py data/tileset.json
 ```
+
+## Requirements
+
+* __Python 3.x__: http://www.python.org/download/
+* pygame: https://www.pygame.org/
 
 ## License
 
