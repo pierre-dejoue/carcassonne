@@ -10,7 +10,7 @@ Carcassonne Map Generator
 ## Requirements
 
 * __Python 3.x__: http://www.python.org/download/
-* pygame: https://www.pygame.org/
+* __pygame__: https://www.pygame.org/
 
 ## License
 

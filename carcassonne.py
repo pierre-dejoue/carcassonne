@@ -2,9 +2,12 @@
 
 
 import argparse
+import boundary
 import graphics
 import json
 import os.path
+from boundary import Boundary
+from collections import deque
 
 
 DEFAULT_TILE_SIZE = 100
@@ -52,6 +55,28 @@ class Tile:
             return 0
 
 
+class PlacedTile:
+    def __init__(self, tile, i, j, r):
+        self.tile = tile
+        self.pos = (i, j)
+        self.rotate(r)
+
+
+    def rotate(self, r):
+        self.r = r
+        self.desc = deque(self.tile.desc)
+        self.desc.rotate(r) # right rotate
+
+
+    def draw(self, display):
+        assert self.tile.img is not None
+        display.set_tile(self.tile.img, self.pos[0], self.pos[1], self.r)
+
+
+    def get_boundary(self):
+        return boundary.get_tile(self.pos[0], self.pos[1], self.desc)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
     parser.add_argument('files', metavar='FILE', nargs='*', help='Tile description file (JSON format)')
@@ -61,6 +86,7 @@ def main():
 
     # Load tileset (JSON files)
     tileset = []
+    start_tile_idx = -1
     for json_file in args.files:
         try:
             fp = open(json_file, 'r')
@@ -68,6 +94,8 @@ def main():
             assert 'tiles' in tileset_json.keys()
             for tile_json in tileset_json['tiles']:
                 tileset.append(Tile(tile_json, os.path.dirname(json_file)))
+                if 'start' in tileset[-1].tags:
+                    start_tile_idx = len(tileset) - 1
         finally:
             fp.close()
 
@@ -89,26 +117,17 @@ def main():
         for tile in tileset:
             if tile.img is None:
                 tile.draw_image(tile_size)
-        print(tile_size)
         display.set_tile_size(tile_size)
 
-        # Place some tiles on display and zoom out
-        i, j = -2, -2
-        r = 0
+        # Place start tile, initialize boundary
+        border = Boundary()
         z = args.zoom_factor
-        for tile in tileset:
-            assert tile.img is not None
-            display.set_tile(tile.img, i, j, r)
-            i = i + 1
-            if i >= 3:
-                i = -2
-                j = j + 1
-            #r = r + 1
-            z = 0.97 * z
+        if start_tile_idx >= 0:
+            start_tile = PlacedTile(tileset[start_tile_idx], 0, 0, 0)
+            border.merge(start_tile.get_boundary())
+            start_tile.draw(display)
             display.update(z, 100)
-        for s in range(100):
-            z = 0.97 * z
-            display.update(z, 100)
+        print(border)
 
         input("Press Enter to exit...")
 
