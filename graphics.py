@@ -1,9 +1,5 @@
 import os.path
-import pygame.display
-import pygame.draw
-import pygame.image
-import pygame.time
-import pygame.transform
+import pygame
 
 
 TILE_COLORS = {
@@ -77,13 +73,15 @@ def load_image(img_path):
 
 class GridDisplay:
     def __init__(self, w, h):
-        if not pygame.display.get_init():
-            pygame.display.init()
+        if not pygame.get_init():
+            pygame.init()
         self.screen = pygame.display.set_mode((w, h))
         self.tile_size = 0
         self.current_zoom = 0.0
         self.tiles = {}
         self.center = self.screen.get_rect().center
+        self.dbg_calls_to_set_tile = 0
+        self.dbg_calls_to_update = 0
 
 
     def set_tile_size(self, tile_size):
@@ -105,7 +103,7 @@ class GridDisplay:
         rotated_img = pygame.transform.rotate(img, r * 90)
         self.tiles[(i, j)] = rotated_img
         self.__blit(rotated_img, i, j)
-
+        self.dbg_calls_to_set_tile += 1
 
     def reset_tile(self, i, j):
         del tiles[(i, j)]
@@ -122,15 +120,18 @@ class GridDisplay:
             self.current_zoom = zoom
             for coord, img in self.tiles.items():
                 self.__blit(img, coord[0], coord[1])
-        pygame.display.update()
+        pygame.display.flip()
         pygame.time.wait(wait_ms)
+        pygame.event.pump()
+        self.dbg_calls_to_update += 1
 
 
     @staticmethod
     def is_init():
-        return pygame.display.get_init()
+        return pygame.get_init()
 
 
-    @staticmethod
-    def quit():
-        pygame.display.quit()
+    def quit(self):
+        print('Nb calls to set_tile: {}', format(self.dbg_calls_to_set_tile))
+        print('Nb calls to update:   {}', format(self.dbg_calls_to_update))
+        pygame.quit()

@@ -58,7 +58,7 @@ class TestBoundary(unittest.TestCase):
     def test_boundary_from_edge(self):
         for orientation in [Orientation.CLOCKWISE, Orientation.COUNTERCLOCKWISE]:
             for domain in [Domain.INTERIOR, Domain.EXTERIOR]:
-                border = boundary.from_edge(3, 5, Vect(1, 0), orientation, domain)
+                border = boundary.from_edge(Vect(3, 5), Vect(1, 0), orientation, domain)
                 self.assertEqual(len(border),4)
                 self.assertEqual(border.orientation(), orientation)
 
@@ -70,6 +70,13 @@ class TestBoundary(unittest.TestCase):
         self.assertEqual(self.border.common_segments(tile2), [(3, 0, 1)])
         self.assertEqual(tile1.common_segments(tile2), [(3, 1, 1)])
         self.assertEqual(tile2.common_segments(tile1), [(1, 3, 1)])
+        tile3 = Boundary()
+        tile3.append(Vect(2,2), 'F')
+        tile3.append(Vect(1,2), 'F')
+        tile3.append(Vect(1,1), 'F')
+        tile3.append(Vect(2,1), 'F')
+        self.assertEqual(tile1.common_segments(tile3), [(3, 3, 1)])
+        self.assertEqual(tile3.common_segments(tile1), [(3, 3, 1)])
 
 
     def test_merge_boundaries(self):

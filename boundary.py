@@ -97,10 +97,16 @@ class Boundary:
         self.labels = other.labels
 
 
-    def __slice(self, i, j):
+    def slice(self, i, j):
+        imod = i % len(self)
+        jmod = j % len(self)
         result = Boundary()
-        result.points = self.points[i:j]
-        result.labels = self.labels[i:j]
+        if imod < jmod:
+            result.points = self.points[imod:jmod]
+            result.labels = self.labels[imod:jmod]
+        else:
+            result.points = self.points[imod:] + self.points[:jmod]
+            result.labels = self.labels[imod:] + self.labels[:jmod]
         return result
 
 
@@ -165,7 +171,7 @@ class Boundary:
         if len(common_segments) >= 2:
             (i_first, j_first, L_first) = common_segments[0]
             (i_last, j_last, L_last) = common_segments[-1]
-            if i_first == 0 and i_last + L_last == len(self_points) - 1 and j_last - j_first == L_first + L_last + 1:
+            if i_first == 0 and i_last + L_last == len(self_points) - 1 and (j_last - j_first) % len(other_points) == L_first + L_last + 1:
                 common_segments = common_segments[1:]
                 common_segments[-1] = (i_last, j_first, L_first + L_last + 1)
 
@@ -182,16 +188,8 @@ class Boundary:
             assert self.orientation() == other.orientation()
             (i, j, L) = segments[0]
             merged = Boundary()
-            if j + L < len(other):
-                merged.__append(other.__slice(j + L, len(other)))
-                merged.__append(other.__slice(0, j))
-            else:
-                merged.__append(other.__slice(j + L - len(other), j))
-            if i + L < len(self):
-                merged.__append(self.__slice(i + L, len(self)))
-                merged.__append(self.__slice(0, i))
-            else:
-                merged.__append(self.__slice(i + L - len(self), i))
+            merged.__append(other.slice(j + L, j))
+            merged.__append(self.slice(i + L, i))
             assert len(merged) + 2 * L == len(self) + len(other)
             self.__replace(merged)
 
@@ -201,12 +199,12 @@ class Boundary:
         return (min_pt.x, min_pt.y)
 
 
-def from_edge(x, y, edge, orientation, domain):
+def from_edge(point, edge, orientation, domain):
     assert isinstance(edge, Vect)
     assert isinstance(orientation, Orientation)
     assert isinstance(domain, Domain)
     border = Boundary()
-    current_point = Vect(x, y)
+    current_point = point
     r = 1 if orientation == Orientation.COUNTERCLOCKWISE else -1
     current_dir = edge if domain == Domain.INTERIOR else edge.rotate(-r)
     for i in range(4):
@@ -216,7 +214,7 @@ def from_edge(x, y, edge, orientation, domain):
     return border
 
 
-def get_tile(i, j, desc):
+def get_tile(i, j, desc = [None, None, None, None]):
     assert len(desc) == 4
     border = Boundary()
     border.append(Vect(i, j), desc[0])
