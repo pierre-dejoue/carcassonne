@@ -144,6 +144,7 @@ def main():
     parser.add_argument('files', metavar='FILE', nargs='*', help='Tile description file (JSON format)')
     parser.add_argument('-n', metavar='N', type=int, dest='max_tiles', default = 0, help='Number of tiles to display (Default: The whole tileset)')
     parser.add_argument('-z', '--zoom-factor', metavar='Z', type=float, dest='zoom_factor', default = 1.0, help='Initial zoom factor (Default: 1.0)')
+    parser.add_argument('-d', '--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
     args = parser.parse_args()
 
     # Load tileset (JSON files)
@@ -172,13 +173,14 @@ def main():
 
         # Load tiles, draw missing ones
         tile_size = 0
-        for tile in tileset:
-            tile.load_image()
-            if tile.get_size() != 0:
-                if tile_size == 0:
-                    tile_size = tile.get_size()
-                elif tile.get_size() != tile_size:
-                    error("Image size of file " + tile.img_path + " (" + str(tile.get_size()) + ") does not match the previous size (" + str(tile_size) + ")")
+        if not args.draw_all:
+            for tile in tileset:
+                tile.load_image()
+                if tile.get_size() != 0:
+                    if tile_size == 0:
+                        tile_size = tile.get_size()
+                    elif tile.get_size() != tile_size:
+                        error("Image size of file " + tile.img_path + " (" + str(tile.get_size()) + ") does not match the previous size (" + str(tile_size) + ")")
         if tile_size == 0:
             tile_size = DEFAULT_TILE_SIZE
         for tile in tileset:
@@ -200,13 +202,15 @@ def main():
 
         # Place random tiles. The map must grow!
         total_nb_tiles_placed = nb_tiles_placed = 1
-        while total_nb_tiles_placed < args.max_tiles:
+        first_tileset = True
+        while (args.max_tiles == 0 and first_tileset) or total_nb_tiles_placed < args.max_tiles:
+            first_tileset = False
             tiles_to_place = shuffle_tileset(tileset)
-            while len(tiles_to_place) > 0 and nb_tiles_placed > 0 and total_nb_tiles_placed < args.max_tiles:
+            while len(tiles_to_place) > 0 and nb_tiles_placed > 0 and (args.max_tiles == 0 or total_nb_tiles_placed < args.max_tiles):
                 nb_tiles_placed = 0
                 tiles_not_placed = []
                 for tile in tiles_to_place:
-                    if total_nb_tiles_placed + nb_tiles_placed >= args.max_tiles:
+                    if args.max_tiles > 0 and total_nb_tiles_placed + nb_tiles_placed >= args.max_tiles:
                         break
                     placed_tile = find_placement(tile, border)
                     if placed_tile is not None:

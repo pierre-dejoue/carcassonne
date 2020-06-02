@@ -20,6 +20,17 @@ def error(msg):
     exit(-1)
 
 
+def path_polygon(x0, y0, x1, y1, xc, yc, width_percent):
+    alpha = width_percent / 200
+    return [
+        ((0.5 + alpha) * x0  + (0.5 - alpha) * x1, (0.5 + alpha) * y0 + (0.5 - alpha) * y1),
+        (xc + 2 * alpha * (x0 - xc), yc + 2 * alpha * (y0 - yc)),
+        (xc, yc),
+        (xc + 2 * alpha * (x1 - xc), yc + 2 * alpha * (y1 - yc)),
+        ((0.5 - alpha) * x0  + (0.5 + alpha) * x1, (0.5 - alpha) * y0 + (0.5 + alpha) * y1)
+    ]
+
+
 def draw_tile(desc, size):
     """
     Draw a simplified tile surface based on the tile description.
@@ -36,20 +47,16 @@ def draw_tile(desc, size):
         x0, y0 = corners[idx % 4]
         x1, y1 = corners[(idx + 1) % 4]
         xc, yc = rect.center
-        if quarter_desc in ['T', 'R'] or quarter_desc not in TILE_COLORS.keys():
+        if quarter_desc == 'T' or quarter_desc not in TILE_COLORS.keys():
             polygon = [
                 (x0, y0),
                 (xc, yc),
                 (x1, y1)
             ]
         elif quarter_desc == 'P':
-            polygon = [
-                (0.525 * x0  + 0.475 * x1, 0.525 * y0 + 0.475 * y1),
-                (xc + 0.05 * (x0 - xc), yc + 0.05 * (y0 - yc)),
-                (xc, yc),
-                (xc + 0.05 * (x1 - xc), yc + 0.05 * (y1 - yc)),
-                (0.475 * x0  + 0.525 * x1, 0.475 * y0 + 0.525 * y1)
-            ]
+            polygon = path_polygon(x0, y0, x1, y1, xc, yc, 5)
+        elif quarter_desc == 'R':
+            polygon = path_polygon(x0, y0, x1, y1, xc, yc, 15)
         else:
             polygon = []
         color = TILE_COLORS[quarter_desc] if quarter_desc in TILE_COLORS.keys() else UNKNOWN_DESC_COLOR

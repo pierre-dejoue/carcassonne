@@ -1,0 +1,26 @@
+{
+  "tiles": [
+    { "description": "RFFF", "cardinality": 1, "img": "img/river/RFFF_source_02.png", "tag1": "river", "tag2": "source", "tag3": "start" },
+    { "description": "RRFF", "cardinality": 1, "img": "img/river/RRFF_01.png", "tag1": "river" },
+    { "description": "FFRR", "cardinality": 1, "img": "img/river/FFRR_01.png", "tag1": "river" },
+    { "description": "PRTR", "cardinality": 1, "img": "img/river/PRTR_01.png", "tag1": "river" },
+    { "description": "PRTR", "cardinality": 1, "img": "img/river/PRTR_02.png", "tag1": "river" },
+    { "description": "RTRT", "cardinality": 1, "img": "img/river/RTRT_01.png", "tag1": "river" },
+    { "description": "RTRT", "cardinality": 1, "img": "img/river/RTRT_02.png", "tag1": "river" },
+    { "description": "RFRF", "cardinality": 1, "img": "img/river/RFRF_01.png", "tag1": "river" },
+    { "description": "RFRF", "cardinality": 1, "img": "img/river/RFRF_02.png", "tag1": "river" },
+    { "description": "RRPP", "cardinality": 1, "img": "img/river/RRPP_01.png", "tag1": "river" },
+    { "description": "PRFR", "cardinality": 1, "img": "img/river/PRFR_01.png", "tag1": "river", "tag2": "monastery" },
+    { "description": "RTTR", "cardinality": 1, "img": "img/river/RTTR_01.png", "tag1": "river" },
+    { "description": "RPRP", "cardinality": 1, "img": "img/river/RPRP_01.png", "tag1": "river" },
+    { "description": "RPRP", "cardinality": 1, "img": "img/river/RPRP_02.png", "tag1": "river" },
+    { "description": "RRRF", "cardinality": 1, "img": "img/river/RRRF_01.png", "tag1": "river", "tag2": "fork" },
+    { "description": "RPPR", "cardinality": 1, "img": "img/river/RPPR_01.png", "tag1": "river" },
+    { "description": "RRTT", "cardinality": 1, "img": "img/river/RRTT_01.png", "tag1": "river" },
+    { "description": "FFRR", "cardinality": 1, "img": "img/river/FFRR_01.png", "tag1": "river" },
+    { "description": "RFFR", "cardinality": 1, "img": "img/river/RFFR_01.png", "tag1": "river" },
+    { "description": "FRFR", "cardinality": 1, "img": "img/river/FRFR_01.png", "tag1": "river", "tag2": "monastery" },
+    { "description": "RFTF", "cardinality": 1, "img": "img/river/RFTF_lake_01.png", "tag1": "river", "tag2": "lake" },
+    { "description": "FFRF", "cardinality": 1, "img": "img/river/FFRF_lake_02.png", "tag1": "river", "tag2": "lake" }
+  ]
+}

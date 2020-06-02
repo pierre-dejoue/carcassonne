@@ -1,12 +1,12 @@
 {
   "tiles": [
-    { "description": "FFFF", "cardinality": 5, "img": "img/FFFF_monastery_01.png", "tag1": "monastery" },
+    { "description": "FPTP", "cardinality": 4, "img": "img/FPTP_start_01.png", "tag1": "start" },
+    { "description": "FFFF", "cardinality": 5, "img": "img/FFFF_01.png", "tag1": "monastery" },
     { "description": "TTTT", "cardinality": 2, "img": "img/TTTT_01.png" },
     { "description": "PPPP", "cardinality": 1, "img": "" },
     { "description": "FTFT", "cardinality": 6, "img": "" },
     { "description": "PFPF", "cardinality": 9, "img": "img/PFPF_01.png" },
     { "description": "TPTP", "cardinality": 0, "img": "" },
-    { "description": "FPTP", "cardinality": 4, "img": "img/FPTP_start_01.png", "tag1": "start" },
     { "description": "FFFP", "cardinality": 3, "img": "" },
     { "description": "FFPP", "cardinality": 9, "img": "" },
     { "description": "FFTF", "cardinality": 4, "img": "img/FFTF_01.png" },
