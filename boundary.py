@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class Vect:
+    """2D vector"""
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -35,7 +36,7 @@ class Vect:
         return Vect(m * self.x, m * self.y)
 
 
-    def cross(self, other):
+    def cross_z(self, other):
         return self.x * other.y - self.y * other.x
 
 
@@ -117,10 +118,10 @@ class Boundary:
 
 
     def orientation(self):
-        cross = sum(self.get_edge(i).cross(self.get_edge(i + 1)) for i in range(len(self)))
-        if cross > 0:
+        cross_z = sum(self.get_edge(i).cross_z(self.get_edge(i + 1)) for i in range(len(self)))
+        if cross_z > 0:
             return Orientation.COUNTERCLOCKWISE
-        elif cross < 0:
+        elif cross_z < 0:
             return Orientation.CLOCKWISE
         else:
             return 0

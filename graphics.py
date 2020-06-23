@@ -1,5 +1,6 @@
 import os.path
 import pygame
+import sys
 
 
 TILE_COLORS = {
@@ -78,17 +79,29 @@ def load_image(img_path):
     return img
 
 
+class MustQuit(Exception):
+    """Raised when the user exits the graphics window"""
+
+
 class GridDisplay:
     def __init__(self, w, h):
         if not pygame.get_init():
             pygame.init()
-        self.screen = pygame.display.set_mode((w, h))
+        if (w, h) == (0, 0):
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((w, h))
         self.tile_size = 0
         self.current_zoom = 0.0
         self.tiles = {}
         self.center = self.screen.get_rect().center
         self.dbg_calls_to_set_tile = 0
         self.dbg_calls_to_update = 0
+
+
+    @staticmethod
+    def is_init():
+        return pygame.get_init()
 
 
     def set_tile_size(self, tile_size):
@@ -112,12 +125,25 @@ class GridDisplay:
         self.__blit(rotated_img, i, j)
         self.dbg_calls_to_set_tile += 1
 
+
     def reset_tile(self, i, j):
         del tiles[(i, j)]
         assert self.tile_size > 0
         black_tile = pygame.Surface((self.tile_size, self.tile_size))
         black_tile.fill(pygame.Color(0, 0, 0))
         self.__blit(black_tile, i, j)
+
+
+    def check_event_queue(self, wait_ms = 0):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                raise MustQuit()
+            elif event.type == pygame.KEYUP and event.key == pygame.K_ESCAPE:
+                raise MustQuit()
+            else:
+                pass
+        if wait_ms > 0:
+            pygame.time.wait(wait_ms)
 
 
     def update(self, zoom = 1.0, wait_ms = 0):
@@ -128,14 +154,9 @@ class GridDisplay:
             for coord, img in self.tiles.items():
                 self.__blit(img, coord[0], coord[1])
         pygame.display.flip()
-        pygame.time.wait(wait_ms)
-        pygame.event.pump()
+        sys.stdout.flush()
         self.dbg_calls_to_update += 1
-
-
-    @staticmethod
-    def is_init():
-        return pygame.get_init()
+        self.check_event_queue(wait_ms)
 
 
     def quit(self):

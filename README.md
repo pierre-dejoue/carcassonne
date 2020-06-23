@@ -12,6 +12,10 @@ Carcassonne Map Generator
 * __Python 3.x__: http://www.python.org/download/
 * __pygame__: https://www.pygame.org/
 
+## Unit Tests
+
+`python -m unittest -v`
+
 ## License
 
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat-square)](./LICENSE)

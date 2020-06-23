@@ -85,6 +85,83 @@ class PlacedTile:
         return boundary.get_tile(self.pos[0], self.pos[1], self.desc)
 
 
+class TileSubset:
+    def __init__(self, predicate, shuffle = True, output_n = -1):
+        self.predicate = predicate
+        self.shuffle = shuffle      # Shuffle result
+        self.output_n = output_n    # if < 0, output all that match the predicate
+
+
+    def partition(self, tileset_iter):
+        it0, it1 = itertools.tee(tileset_iter)
+        selection = list(filter(self.predicate, it0))
+        if self.shuffle:
+            selection = random.sample(selection, len(selection))
+        if self.output_n >= 0:
+            selection = selection[:self.output_n]
+        return (selection, itertools.filterfalse(self.predicate, it1))
+
+
+    @staticmethod
+    def regular_start():
+        def pred_regular_start(tile):
+            return 'start' in tile.tags and 'river' not in tile.tags
+        return TileSubset(pred_regular_start, output_n = 1)
+
+
+    @staticmethod
+    def river_source():
+        def pred_river_source(tile):
+            return 'river' in tile.tags and 'source' in tile.tags
+        return TileSubset(pred_river_source, output_n = 1)
+
+
+    @staticmethod
+    def river_not_source_nor_sink():
+        def pred_river_others(tile):
+            return 'river' in tile.tags and 'source' not in tile.tags and 'lake' not in tile.tags
+        return TileSubset(pred_river_others)
+
+
+    @staticmethod
+    def river_sink(n = -1):
+        def pred_river_sink(tile):
+            return 'river' in tile.tags and 'lake' in tile.tags
+        return TileSubset(pred_river_sink, output_n = n)
+
+
+    @staticmethod
+    def shuffle_remaining():
+        return TileSubset(lambda _: True, shuffle = True)
+
+
+
+def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True, shuffle_remaining = True):
+    def subset_generator(predicates, remaining):
+        for predicate in predicates:
+            tile_subset, remaining = predicate.partition(remaining)
+            yield tile_subset
+
+    return subset_generator(tile_predicates, tileset_iter)
+
+
+def shuffle_tileset(tileset, river = False):
+    all_tiles = itertools.chain.from_iterable([itertools.repeat(tile, tile.remaining_nb) for tile in tileset])
+    if river:
+        tile_predicates = [
+            TileSubset.river_source(),
+            TileSubset.river_not_source_nor_sink(),
+            TileSubset.river_sink(),
+            TileSubset.shuffle_remaining()
+        ]
+    else:
+        tile_predicates = [
+            TileSubset.regular_start(),
+            TileSubset.shuffle_remaining()
+        ]
+    return list(apply_tile_predicates(tile_predicates, all_tiles))
+
+
 def select_tile_placement(candidate_placements):
     """
     A candidate tile placement is an unoccupied tile adjacent to the map boundary.
@@ -106,37 +183,40 @@ def select_tile_placement(candidate_placements):
     return candidate_placements[0][0]
 
 
-def find_placement(tile, border):
+def find_candidate_placements(tile, border, max_candidates = -1, forced_segment = None):
+    N = len(border)
+    if N == 0:
+        return [(PlacedTile(tile, 0, 0, 0), 0)]     # Corner case: The first tile of the map
+
     candidate_placements = []
     tagged = set()
-    for idx in range(len(border)):
+    start_idx = random.randrange(N)
+    for idx in range(start_idx, start_idx + N):
+        if idx >= N:
+            idx -= N
         point = border.points[idx]
+        if forced_segment is not None and forced_segment != border.labels[idx]:
+            continue
         edge = border.get_edge(idx)
         tile_boundary = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
         (i, j) = tile_boundary.bottomleft()
-        if (i, j) not in tagged:
-            tagged.add((i, j))
-            common_segments = border.common_segments(boundary.get_tile(i, j))
-            if len(common_segments) == 1:
-                (border_idx, tile_idx, L) = common_segments[0]
-                border_labels = border.slice(border_idx, border_idx + L).labels
-                border_labels.reverse()
-                for r in range(4):
-                    placed_tile = PlacedTile(tile, i, j, r)
-                    tile_labels = placed_tile.get_boundary().slice(tile_idx, tile_idx + L).labels
-                    if tile_labels == border_labels:
-                        candidate_placements.append((placed_tile, L))
-    if len(candidate_placements) > 0:
-        return select_tile_placement(candidate_placements)
-    else:
-        warn('Could not placed tile')
-        return None
-
-
-def shuffle_tileset(tileset):
-    tiles = list(itertools.chain.from_iterable([list(itertools.repeat(tile, tile.remaining_nb)) for tile in tileset]))
-    random.shuffle(tiles)
-    return tiles
+        if (i, j) in tagged:
+            continue
+        tagged.add((i, j))
+        common_segments = border.common_segments(boundary.get_tile(i, j))
+        if len(common_segments) != 1:
+            continue
+        (border_idx, tile_idx, L) = common_segments[0]
+        border_labels = border.slice(border_idx, border_idx + L).labels
+        border_labels.reverse()
+        for r in range(4):
+            placed_tile = PlacedTile(tile, i, j, r)
+            tile_labels = placed_tile.get_boundary().slice(tile_idx, tile_idx + L).labels
+            if tile_labels == border_labels:
+                candidate_placements.append((placed_tile, L))
+        if max_candidates > 0 and len(candidate_placements) >= max_candidates:
+            break
+    return candidate_placements
 
 
 def main():
@@ -145,11 +225,12 @@ def main():
     parser.add_argument('-n', metavar='N', type=int, dest='max_tiles', default = 0, help='Number of tiles to display (Default: The whole tileset)')
     parser.add_argument('-z', '--zoom-factor', metavar='Z', type=float, dest='zoom_factor', default = 1.0, help='Initial zoom factor (Default: 1.0)')
     parser.add_argument('-d', '--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
+    parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
     args = parser.parse_args()
 
     # Load tileset (JSON files)
     tileset = []
-    start_tile_idx = -1
+    river_map_flag = False
     for json_file in args.files:
         try:
             fp = open(json_file, 'r')
@@ -161,15 +242,23 @@ def main():
                 cumul += tileset[-1].remaining_nb
                 if tileset[-1].remaining_nb == 0:
                     del tileset[-1:]
-                elif 'start' in tileset[-1].tags:
-                    start_tile_idx = len(tileset) - 1
+                elif 'river' in tileset[-1].tags:
+                    river_map_flag = True
+                if 'start' in tileset[-1].tags:
+                    assert tileset[-1].remaining_nb == 1
         finally:
             print('Loaded {} tiles from file {}.'.format(cumul, json_file))
             fp.close()
 
+    print('Press ESCAPE in the graphics window to quit', flush = True)
+
     try:
         # Open display
-        display = graphics.GridDisplay(1500, 1000)
+        if args.full_screen:
+            w, h = 0, 0
+        else:
+            w, h = 1280, 720
+        display = graphics.GridDisplay(w, h)
 
         # Load tiles, draw missing ones
         tile_size = 0
@@ -188,43 +277,48 @@ def main():
                 tile.draw_image(tile_size)
         display.set_tile_size(tile_size)
 
-        # Place start tile, initialize boundary
+        # Place random tiles. The map must grow!
         border = Boundary()
         z = args.zoom_factor
-        if start_tile_idx < 0:
-            start_tile_idx = random.randrange(len(tileset))
-        assert tileset[start_tile_idx].remaining_nb > 0
-        start_tile = PlacedTile(tileset[start_tile_idx], 0, 0, 0)
-        border.merge(start_tile.get_boundary())
-        start_tile.draw(display)
-        tileset[start_tile_idx].remaining_nb -= 1
-        display.update(z, 100)
-
-        # Place random tiles. The map must grow!
-        total_nb_tiles_placed = nb_tiles_placed = 1
+        total_nb_tiles_placed = 0
+        nb_tiles_placed = 0
         first_tileset = True
         while (args.max_tiles == 0 and first_tileset) or total_nb_tiles_placed < args.max_tiles:
             first_tileset = False
-            tiles_to_place = shuffle_tileset(tileset)
-            while len(tiles_to_place) > 0 and nb_tiles_placed > 0 and (args.max_tiles == 0 or total_nb_tiles_placed < args.max_tiles):
-                nb_tiles_placed = 0
-                tiles_not_placed = []
-                for tile in tiles_to_place:
-                    if args.max_tiles > 0 and total_nb_tiles_placed + nb_tiles_placed >= args.max_tiles:
+            tile_subsets_to_place = shuffle_tileset(tileset, river_map_flag)
+            for tiles_to_place in tile_subsets_to_place:
+                while len(tiles_to_place) > 0 and (args.max_tiles == 0 or total_nb_tiles_placed < args.max_tiles):
+                    nb_tiles_placed = 0
+                    tiles_not_placed = []
+                    for tile in tiles_to_place:
+                        if args.max_tiles > 0 and total_nb_tiles_placed + nb_tiles_placed >= args.max_tiles:
+                            break
+                        forced_segment = 'R' if 'river' in tile.tags and 'source' not in tile.tags else None
+                        max_candidates = 20
+                        candidates = find_candidate_placements(tile, border, max_candidates, forced_segment)
+                        if len(candidates) > 0:
+                            placed_tile = select_tile_placement(candidates)
+                            border.merge(placed_tile.get_boundary())
+                            placed_tile.draw(display)
+                            #z = 0.995 * z
+                            #display.update(z, 100)
+                            nb_tiles_placed += 1
+                        else:
+                            warn('Could not placed tile {}'.format(tile.desc))
+                            tiles_not_placed.append(tile)
+                    if nb_tiles_placed == 0:
                         break
-                    placed_tile = find_placement(tile, border)
-                    if placed_tile is not None:
-                        border.merge(placed_tile.get_boundary())
-                        placed_tile.draw(display)
-                        nb_tiles_placed += 1
-                    else:
-                        tiles_not_placed.append(tile)
-                total_nb_tiles_placed += nb_tiles_placed
-                print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
-                display.update(z, 100)
-                tiles_to_place = tiles_not_placed
+                    total_nb_tiles_placed += nb_tiles_placed
+                    print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
+                    display.update(z, 100)
+                    tiles_to_place = tiles_not_placed
 
-        input("Press Enter to exit...")
+        # Wait until the user quits
+        while True:
+            display.check_event_queue(200)
+
+    except graphics.MustQuit:
+        pass
 
     finally:
         display.quit()
