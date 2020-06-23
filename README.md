@@ -4,7 +4,7 @@ Carcassonne Map Generator
 ## Usage
 
 ```
-./carcassonne.py data/tileset.json
+./carcassonne.py resources/tileset_base.json
 ```
 
 ## Requirements

@@ -1,2 +1,4 @@
 __pycache__/
-
+resources/img_lowres/
+resources/img_highres/
+misc/
