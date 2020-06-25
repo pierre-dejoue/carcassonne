@@ -119,20 +119,23 @@ def load_or_draw_tile_images(tileset, draw_all = False):
 
 
 class PlacedTile:
-    def __init__(self, tile, i, j, r):
+    def __init__(self, tile, i, j, r, segment = None):
         self.tile = tile
         self.pos = (i, j)
-        self.rotate(r)
+        self.r = r
+        self.segment = segment  # Common segment between the border and this tile
 
 
     def get_l1_distance(self):
         return abs(self.pos[0]) + abs(self.pos[1])
 
 
-    def rotate(self, r):
-        self.r = r
-        self.desc = deque(self.tile.desc)
-        self.desc.rotate(r) # right rotate
+    def get_segment_length(self):
+        if self.segment is None:
+            return 0
+        else:
+            (_, _, L) = self.segment
+            return L
 
 
     def draw(self, display):
@@ -141,14 +144,16 @@ class PlacedTile:
 
 
     def get_boundary(self):
-        return boundary.get_tile(self.pos[0], self.pos[1], self.desc)
+        desc = deque(self.tile.desc)
+        desc.rotate(self.r)
+        return boundary.get_tile(self.pos[0], self.pos[1], desc)
 
 
 class TileSubset:
     def __init__(self, predicate, shuffle = True, output_n = -1):
         self.predicate = predicate
         self.shuffle = shuffle      # Shuffle result
-        self.output_n = output_n    # if < 0, output all that match the predicate
+        self.output_n = output_n    # If < 0, output all
 
 
     def partition(self, tileset_iter):
@@ -205,7 +210,7 @@ def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True
 
 
 def shuffle_tileset(tileset, river = False):
-    all_tiles = itertools.chain.from_iterable([itertools.repeat(tile, tile.remaining_nb) for tile in tileset])
+    all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.remaining_nb) for tile in tileset)
     if river:
         tile_predicates = [
             TileSubset.river_source(),
@@ -225,52 +230,50 @@ def select_tile_placement(candidate_placements):
     """
     A candidate tile placement is an unoccupied tile adjacent to the map boundary.
     In order to prioritize a placement among all candidates, the following parameters are used:
-     - The number of segments in contact with the boundary
+     - The length of the segment in contact with the boundary
      - The L1 distance of the tile to the center of the map
 
-    candidate_placements: List of tuples (placed_tile, nb_contact_segments)
+    candidate_placements: A list of PlacedTile objects
     """
     assert len(candidate_placements) > 0
-    candidate_placements.sort(key=lambda tuple : tuple[0].get_l1_distance())
-    candidate_placements.sort(key=itemgetter(1), reverse=True)
+    candidate_placements.sort(key=PlacedTile.get_l1_distance)
+    candidate_placements.sort(key=PlacedTile.get_segment_length, reverse=True)
     if DEBUG_PRINTOUT:
-        print("Candidates:")
-        for (placed_tile, L) in candidate_placements:
-            print('nb_contact_segments={}, pos=({}, {}), r={}'.format(L, placed_tile.pos[0], placed_tile.pos[1], placed_tile.r))
-    return candidate_placements[0][0]
+        print("Candidates in decreasing priority:")
+        for placed_tile in candidate_placements:
+            print('nb_contact_sides={}, pos=({}, {}), r={}'.format(placed_tile.get_segment_length(), placed_tile.pos[0], placed_tile.pos[1], placed_tile.r))
+    return candidate_placements[0]
 
 
 def find_candidate_placements(tile, border, max_candidates = -1, forced_segment = None):
     N = len(border)
+
     if N == 0:
-        return [(PlacedTile(tile, 0, 0, 0), 0)]     # Corner case: The first tile of the map
+        return [PlacedTile(tile, 0, 0, 0)]     # Corner case: The first tile of the map
 
     candidate_placements = []
     tagged = set()
     start_idx = random.randrange(N)
     for idx in range(start_idx, start_idx + N):
-        if idx >= N:
-            idx -= N
-        point = border.points[idx]
-        if forced_segment is not None and forced_segment != border.labels[idx]:
+        point = border.points[idx % N]
+        label = border.labels[idx % N]
+        edge = border.get_edge(idx % N)
+        if label is None:
             continue
-        edge = border.get_edge(idx)
-        tile_boundary = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
-        (i, j) = tile_boundary.bottomleft()
-        if (i, j) in tagged:
+        if forced_segment is not None and forced_segment != label:
             continue
-        tagged.add((i, j))
-        common_segments = border.common_segments(boundary.get_tile(i, j))
+        tile_border = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
+        pos = tile_border.bottom_left()
+        if pos in tagged:
+            continue
+        tagged.add(pos)
+        tile_border.rotate_to_start_with(pos)
+        tile_border.set_labels(list(tile.desc))
+        common_segments = border.common_segments(tile_border)
         if len(common_segments) != 1:
             continue
-        (border_idx, tile_idx, L) = common_segments[0]
-        border_labels = border.slice(border_idx, border_idx + L).labels
-        border_labels.reverse()
-        for r in range(4):
-            placed_tile = PlacedTile(tile, i, j, r)
-            tile_labels = placed_tile.get_boundary().slice(tile_idx, tile_idx + L).labels
-            if tile_labels == border_labels:
-                candidate_placements.append((placed_tile, L))
+        rotations = border.find_matching_rotations(tile_border, common_segments[0])
+        candidate_placements.extend(PlacedTile(tile, pos.x, pos.y, r, common_segments[0]) for r in rotations)
         if max_candidates > 0 and len(candidate_placements) >= max_candidates:
             break
     return candidate_placements
@@ -320,7 +323,7 @@ def main():
                         candidates = find_candidate_placements(tile, border, max_candidates, forced_segment)
                         if len(candidates) > 0:
                             placed_tile = select_tile_placement(candidates)
-                            border.merge(placed_tile.get_boundary())
+                            border.merge(placed_tile.get_boundary(), placed_tile.segment)
                             placed_tile.draw(display)
                             #z = 0.995 * z
                             #display.update(z, 100)

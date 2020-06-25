@@ -34,7 +34,7 @@ class TestBoundary(unittest.TestCase):
         self.assertEqual(self.border.orientation(), Orientation.COUNTERCLOCKWISE)
         self.assertEqual(self.border.get_edge(0), Vect(1, 0))
         self.assertEqual(self.border.get_edge(-1), Vect(0, -1))
-        self.assertEqual(self.border.bottomleft(), (0, 0))
+        self.assertEqual(self.border.bottom_left(), Vect(0, 0))
 
 
     def test_common_segments(self):
@@ -86,20 +86,49 @@ class TestBoundary(unittest.TestCase):
         self.assertEqual(len(segments), 2)
 
 
+    def test_rotate_to_start_with(self):
+        border = self.border.copy()
+
+        border.rotate_to_start_with(Vect(2, 0))
+        self.assertEqual(len(border), len(self.border))
+        self.assertEqual(border.points[0], Vect(2, 0))
+        self.assertEqual(border.labels, list('TPFPFF'))
+
+        border.rotate_to_start_with(Vect(2, 1))
+        self.assertEqual(len(border), len(self.border))
+        self.assertEqual(border.points[0], Vect(2, 1))
+        self.assertEqual(border.labels, list('PFPFFT'))
+
+        with self.assertRaises(ValueError):
+            border.rotate_to_start_with(Vect(99, 99))
+
+
+    def test_find_matching_rotations(self):
+        border = boundary.get_tile(0, 0, 'FFFF')
+        border.merge(boundary.get_tile(0, 1, 'FFFF'))
+        border.merge(boundary.get_tile(1, 1, 'TFFF'))
+        border.rotate_to_start_with(Vect(0, 0))
+        self.assertEqual(len(border), 8)
+        self.assertEqual(border.labels, list('FFTFFFFF'))
+        tile = boundary.get_tile(1, 0, 'TFFF')
+        self.assertEqual(border.common_segments(tile), [(1, 2, 2)])
+        self.assertEqual(list(border.find_matching_rotations(tile, (1, 2, 2))), [2])
+
+
     def tearDown(self):
         pass
 
 
 class TestFromEdge(unittest.TestCase):
     def test_from_edge(self):
-        bottomlefts = defaultdict(int)
+        bottom_lefts = defaultdict(int)
         for orientation in [Orientation.CLOCKWISE, Orientation.COUNTERCLOCKWISE]:
             for domain in [Domain.INTERIOR, Domain.EXTERIOR]:
                 border = boundary.from_edge(Vect(3, 5), Vect(1, 0), orientation, domain)
                 self.assertEqual(len(border),4)
                 self.assertEqual(border.orientation(), orientation)
-                bottomlefts[border.bottomleft()] += 1
-        self.assertEqual(bottomlefts, { (3, 5): 2, (3, 4): 2 })
+                bottom_lefts[border.bottom_left()] += 1
+        self.assertEqual(bottom_lefts, { Vect(3, 5): 2, Vect(3, 4): 2 })
 
 
 class TestGetTile(unittest.TestCase):
@@ -112,7 +141,7 @@ class TestGetTile(unittest.TestCase):
         self.assertEqual(tile.get_edge(1), Vect(0, 1))
         self.assertEqual(tile.get_edge(2), Vect(-1, 0))
         self.assertEqual(tile.get_edge(3), Vect(0, -1))
-        self.assertEqual(tile.bottomleft(), (5, 7))
+        self.assertEqual(tile.bottom_left(), Vect(5, 7))
 
 
 if __name__ == '__main__':

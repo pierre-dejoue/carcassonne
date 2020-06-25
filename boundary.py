@@ -88,6 +88,11 @@ class Boundary:
         self.labels.append(label)
 
 
+    def set_labels(self, labels):
+        assert len(labels) == len(self)
+        self.labels = labels
+
+
     def __append(self, other):
         self.points += other.points
         self.labels += other.labels
@@ -98,17 +103,24 @@ class Boundary:
         self.labels = other.labels
 
 
-    def slice(self, i, j):
+    def copy(self):
+        other = Boundary()
+        other.points = self.points.copy()
+        other.labels = self.labels.copy()
+        return other
+
+
+    def __slice(self, i, j):
         imod = i % len(self)
         jmod = j % len(self)
-        result = Boundary()
+        other = Boundary()
         if imod < jmod:
-            result.points = self.points[imod:jmod]
-            result.labels = self.labels[imod:jmod]
+            other.points = self.points[imod:jmod]
+            other.labels = self.labels[imod:jmod]
         else:
-            result.points = self.points[imod:] + self.points[:jmod]
-            result.labels = self.labels[imod:] + self.labels[:jmod]
-        return result
+            other.points = self.points[imod:] + self.points[:jmod]
+            other.labels = self.labels[imod:] + self.labels[:jmod]
+        return other
 
 
     def get_edge(self, idx):
@@ -179,25 +191,46 @@ class Boundary:
         return common_segments
 
 
-    def merge(self, other):
-        """Assuming the two boundaries share a unique common segment and have the same orienation, merge them into a single boundary"""
+    def find_matching_rotations(self, other, common_segment):
+        assert self.orientation() == other.orientation()
+        (i, j, L) = common_segment
+        assert L > 0
+        self_labels = self.__slice(i, i + L).labels
+        self_labels.reverse()
+        for r in range(len(other)):
+            if other.__slice(j - r, j - r + L).labels == self_labels:
+                yield r
+
+
+    def merge(self, other, hint_common_segment = None):
+        """Assuming the two boundaries share a unique common segment and have the same orientation, merge them into a single boundary"""
         if len(self) == 0:
+            assert hint_common_segment is None
             self.__replace(other)
         else:
-            segments = self.common_segments(other)
-            assert len(segments) == 1
             assert self.orientation() == other.orientation()
-            (i, j, L) = segments[0]
+            if hint_common_segment is None:
+                segments = self.common_segments(other)
+                assert len(segments) == 1
+                (i, j, L) = segments[0]
+            else:
+                (i, j, L) = hint_common_segment
             merged = Boundary()
-            merged.__append(other.slice(j + L, j))
-            merged.__append(self.slice(i + L, i))
+            merged.__append(other.__slice(j + L, j))
+            merged.__append(self.__slice(i + L, i))
             assert len(merged) + 2 * L == len(self) + len(other)
             self.__replace(merged)
 
 
-    def bottomleft(self):
+    def bottom_left(self):
         min_pt = min(self.points, key=Vect.cmp_key)
-        return (min_pt.x, min_pt.y)
+        return Vect(min_pt.x, min_pt.y)
+
+
+    def rotate_to_start_with(self, point):
+        i = self.points.index(point)
+        self.points = self.points[i:] + self.points[:i]
+        self.labels = self.labels[i:] + self.labels[:i]
 
 
 def from_edge(point, edge, orientation, domain):
@@ -209,7 +242,7 @@ def from_edge(point, edge, orientation, domain):
     r = 1 if orientation == Orientation.COUNTERCLOCKWISE else -1
     current_dir = edge if domain == Domain.INTERIOR else edge.rotate(-r)
     for i in range(4):
-        border.append(current_point, None)
+        border.append(current_point)
         current_point = current_point + current_dir
         current_dir = current_dir.rotate(r)
     return border
