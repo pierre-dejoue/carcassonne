@@ -8,6 +8,7 @@ import itertools
 import json
 import os.path
 import random
+import sys
 from boundary import Boundary
 from boundary import Domain
 from boundary import Orientation
@@ -16,6 +17,7 @@ from operator import itemgetter
 
 
 DEFAULT_TILE_SIZE = 100
+DEBUG_PRINTOUT = False
 
 
 def warn(msg):
@@ -23,7 +25,7 @@ def warn(msg):
 
 
 def error(msg):
-    print("Error: " + msg)
+    print("Error: " + msg, file = sys.stderr)
     exit(-1)
 
 
@@ -42,7 +44,11 @@ class Tile:
 
 
     def load_image(self):
-        self.img = graphics.load_image(self.img_path)
+        try:
+            self.img = graphics.load_image(self.img_path)
+        except Exception as e:
+            warn('Could not load image: {} (message: {})'.format(self.img_path, e))
+            self.img = None
 
 
     def draw_image(self, size):
@@ -53,10 +59,30 @@ class Tile:
 
     def get_size(self):
         if self.img is not None:
-            assert self.img.get_height() == self.img.get_width()
-            return self.img.get_width()
+            assert self.img.height() == self.img.width()
+            return self.img.width()
         else:
             return 0
+
+
+def load_or_draw_tile_images(tileset, draw_all = False):
+    assert graphics.is_init()
+    tile_size = 0
+    if not draw_all:
+        for tile in tileset:
+            tile.load_image()
+            if tile.get_size() != 0:
+                if tile_size == 0:
+                    tile_size = tile.get_size()
+                elif tile.get_size() != tile_size:
+                    error("Image size of file " + tile.img_path + " (" + str(tile.get_size()) + ") does not match the previous size (" + str(tile_size) + ")")
+    if tile_size == 0:
+        tile_size = DEFAULT_TILE_SIZE
+    for tile in tileset:
+        if tile.img is None:
+            tile.draw_image(tile_size)
+            assert tile.img is not None
+    return tile_size
 
 
 class PlacedTile:
@@ -174,9 +200,7 @@ def select_tile_placement(candidate_placements):
     assert len(candidate_placements) > 0
     candidate_placements.sort(key=lambda tuple : tuple[0].get_l1_distance())
     candidate_placements.sort(key=itemgetter(1), reverse=True)
-    if False:
-        # Debug printout
-        print("Tile: " + tile.desc)
+    if DEBUG_PRINTOUT:
         print("Candidates:")
         for (placed_tile, L) in candidate_placements:
             print('nb_contact_segments={}, pos=({}, {}), r={}'.format(L, placed_tile.pos[0], placed_tile.pos[1], placed_tile.r))
@@ -253,29 +277,13 @@ def main():
     print('Press ESCAPE in the graphics window to quit', flush = True)
 
     try:
-        # Open display
-        if args.full_screen:
-            w, h = 0, 0
-        else:
-            w, h = 1280, 720
-        display = graphics.GridDisplay(w, h)
+        # Load tile images, and draw missing ones
+        graphics.init()
+        tile_size = load_or_draw_tile_images(tileset, args.draw_all)
 
-        # Load tiles, draw missing ones
-        tile_size = 0
-        if not args.draw_all:
-            for tile in tileset:
-                tile.load_image()
-                if tile.get_size() != 0:
-                    if tile_size == 0:
-                        tile_size = tile.get_size()
-                    elif tile.get_size() != tile_size:
-                        error("Image size of file " + tile.img_path + " (" + str(tile.get_size()) + ") does not match the previous size (" + str(tile_size) + ")")
-        if tile_size == 0:
-            tile_size = DEFAULT_TILE_SIZE
-        for tile in tileset:
-            if tile.img is None:
-                tile.draw_image(tile_size)
-        display.set_tile_size(tile_size)
+        # Open display
+        (w, h) = (0, 0) if args.full_screen else (1280, 720)
+        display = graphics.GridDisplay(w, h, tile_size)
 
         # Place random tiles. The map must grow!
         border = Boundary()
@@ -309,7 +317,8 @@ def main():
                     if nb_tiles_placed == 0:
                         break
                     total_nb_tiles_placed += nb_tiles_placed
-                    print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
+                    if DEBUG_PRINTOUT:
+                        print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
                     display.update(z, 100)
                     tiles_to_place = tiles_not_placed
 
@@ -321,7 +330,9 @@ def main():
         pass
 
     finally:
-        display.quit()
+        if DEBUG_PRINTOUT and 'display' in locals():
+            print(display.get_debug_info())
+        graphics.quit()
 
     return 0
 
