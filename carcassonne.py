@@ -9,6 +9,7 @@ import json
 import os.path
 import random
 import sys
+import traceback
 from boundary import Boundary
 from boundary import Domain
 from boundary import Orientation
@@ -63,6 +64,38 @@ class Tile:
             return self.img.width()
         else:
             return 0
+
+
+def parse_tileset_description_file(json_file):
+    fp = None
+    cumul = 0
+    try:
+        fp = open(json_file, 'r')
+        tileset_json = json.load(fp)
+        assert 'tiles' in tileset_json.keys()
+        for tile_json in tileset_json['tiles']:
+            tile = Tile(tile_json, os.path.dirname(json_file))
+            assert tile.remaining_nb >= 0
+            if tile.remaining_nb > 0:
+                if 'start' in tile.tags:
+                    assert tile.remaining_nb == 1
+                cumul += tile.remaining_nb
+                yield tile
+    except FileNotFoundError:
+        warn('Could not load file {}'.format(json_file))
+    except AssertionError:
+        _, _, tb = sys.exc_info()
+        tb_info = traceback.extract_tb(tb)
+        filename, line, func, text = tb_info[-1]
+        warn('An error occurred in file {} line {} in statement "{}"'.format(filename, line, text))
+    except Exception:
+        warn('Error parsing file {}'.format(json_file))
+        raise
+    finally:
+        if fp is not None:
+            fp.close()
+    if cumul > 0:
+        print('Loaded {} tiles from file {}'.format(cumul, json_file))
 
 
 def load_or_draw_tile_images(tileset, draw_all = False):
@@ -253,28 +286,8 @@ def main():
     args = parser.parse_args()
 
     # Load tileset (JSON files)
-    tileset = []
-    river_map_flag = False
-    for json_file in args.files:
-        try:
-            fp = open(json_file, 'r')
-            tileset_json = json.load(fp)
-            assert 'tiles' in tileset_json.keys()
-            cumul = 0
-            for tile_json in tileset_json['tiles']:
-                tileset.append(Tile(tile_json, os.path.dirname(json_file)))
-                cumul += tileset[-1].remaining_nb
-                if tileset[-1].remaining_nb == 0:
-                    del tileset[-1:]
-                elif 'river' in tileset[-1].tags:
-                    river_map_flag = True
-                if 'start' in tileset[-1].tags:
-                    assert tileset[-1].remaining_nb == 1
-        finally:
-            print('Loaded {} tiles from file {}.'.format(cumul, json_file))
-            fp.close()
-
-    print('Press ESCAPE in the graphics window to quit', flush = True)
+    tileset = list(itertools.chain.from_iterable(parse_tileset_description_file(json_file) for json_file in args.files))
+    river_map_flag = any('river' in tile.tags for tile in tileset)
 
     try:
         # Load tile images, and draw missing ones
@@ -284,6 +297,7 @@ def main():
         # Open display
         (w, h) = (0, 0) if args.full_screen else (1280, 720)
         display = graphics.GridDisplay(w, h, tile_size)
+        print('Press ESCAPE in the graphics window to quit', flush = True)
 
         # Place random tiles. The map must grow!
         border = Boundary()
