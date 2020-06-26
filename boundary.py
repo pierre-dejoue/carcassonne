@@ -184,7 +184,7 @@ class Boundary:
         if len(common_segments) >= 2:
             (i_first, j_first, L_first) = common_segments[0]
             (i_last, j_last, L_last) = common_segments[-1]
-            if i_first == 0 and i_last + L_last == len(self_points) - 1 and (j_last - j_first) % len(other_points) == L_first + L_last + 1:
+            if i_first == 0 and i_last + L_last == len(self_points) - 1 and (j_last - j_first) % len(other_points) == L_first + 1:
                 common_segments = common_segments[1:]
                 common_segments[-1] = (i_last, j_first, L_first + L_last + 1)
 
@@ -220,6 +220,7 @@ class Boundary:
             merged.__append(self.__slice(i + L, i))
             assert len(merged) + 2 * L == len(self) + len(other)
             self.__replace(merged)
+        return self
 
 
     def bottom_left(self):

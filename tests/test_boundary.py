@@ -1,4 +1,5 @@
 import boundary
+import functools
 import unittest
 from boundary import Boundary
 from boundary import Domain
@@ -16,6 +17,10 @@ class TestVect(unittest.TestCase):
         self.assertEqual(Vect(1, 2).mult(2), Vect(2, 4))
         self.assertEqual(Vect(1, 0).cross_z(Vect(0, 1)), 1)
         self.assertEqual(Vect(0, 1).cross_z(Vect(1, 0)), -1)
+
+
+def make_border_from_tiles(tiles_args):
+    return functools.reduce(lambda border, args: border.merge(boundary.get_tile(*args)), tiles_args, Boundary())
 
 
 class TestBoundary(unittest.TestCase):
@@ -37,7 +42,7 @@ class TestBoundary(unittest.TestCase):
         self.assertEqual(self.border.bottom_left(), Vect(0, 0))
 
 
-    def test_common_segments(self):
+    def test_common_segments_1(self):
         tile1 = boundary.get_tile(2, 1, 'FFFF')
         self.assertEqual(self.border.common_segments(tile1), [(3, 0, 0)])
         tile2 = boundary.get_tile(1, 1, 'FFFF')
@@ -53,19 +58,45 @@ class TestBoundary(unittest.TestCase):
         self.assertEqual(tile3.common_segments(tile1), [(3, 3, 1)])
 
 
-    def test_merge_boundaries(self):
-        border = boundary.get_tile(0, 0, 'FFFF')
+    def test_common_segments_2(self):
+        tiles_args = [ (0, 0), (1, 0), (1, 1), (0, 1) ]
+        for single_idx in range(4):
+            single_tile = boundary.get_tile(*tiles_args[single_idx])
+            three_other_tiles = tiles_args[single_idx+1:] + tiles_args[:single_idx]
+            border = make_border_from_tiles(three_other_tiles)
+            self.assertEqual(len(border), 8)
+            border.rotate_to_start_with(Vect(1, 1))
+            for ii in range(len(border)):
+                segments = border.common_segments(single_tile)
+                self.assertEqual(len(segments), 1)
+                (i, j, L) = segments[0]
+                self.assertEqual(L, 2)
+                self.assertEqual(j, (single_idx + 1) % 4)
+                self.assertEqual(i, 7 - ii)
+                border.rotate_to_start_with(border.points[1])
+
+
+    def test_merge(self):
+        border = Boundary()
+
+        border.merge(boundary.get_tile(0, 0, 'FFFF'))
+        self.assertEqual(len(border), 4)
+        self.assertEqual(border.labels, list('FFFF'))
+
         border.merge(boundary.get_tile(1, 0, 'FFFF'))
         self.assertEqual(len(border), 6)
+        self.assertEqual(border.labels, list('FFFFFF'))
 
 
     def test_corner_case_1(self):
-        border = boundary.get_tile(1, 0, 'FFFF')
-        border.merge(boundary.get_tile(2, 0, 'FFFF'))
-        border.merge(boundary.get_tile(2, 1, 'FFFF'))
-        border.merge(boundary.get_tile(2, 2, 'FFFF'))
-        border.merge(boundary.get_tile(1, 2, 'FFFF'))
-        border.merge(boundary.get_tile(0, 2, 'FFFF'))
+        tiles_args = [
+            (1, 0, 'FFFF'),
+            (2, 0, 'FFFF'),
+            (2, 1, 'FFFF'),
+            (2, 2, 'FFFF'),
+            (1, 2, 'FFFF'),
+            (0, 2, 'FFFF')]
+        border = make_border_from_tiles(tiles_args)
         self.assertEqual(len(border), 14)
         tile = boundary.get_tile(0, 1, 'FFFF')
         segments = border.common_segments(tile)
@@ -73,13 +104,15 @@ class TestBoundary(unittest.TestCase):
 
 
     def test_corner_case_2(self):
-        border = boundary.get_tile(2, 0, 'FFFF')
-        border.merge(boundary.get_tile(2, 1, 'FFFF'))
-        border.merge(boundary.get_tile(2, 2, 'FFFF'))
-        border.merge(boundary.get_tile(1, 2, 'FFFF'))
-        border.merge(boundary.get_tile(0, 2, 'FFFF'))
-        border.merge(boundary.get_tile(0, 1, 'FFFF'))
-        border.merge(boundary.get_tile(0, 0, 'FFFF'))
+        tiles_args = [
+            (2, 0, 'FFFF'),
+            (2, 1, 'FFFF'),
+            (2, 2, 'FFFF'),
+            (1, 2, 'FFFF'),
+            (0, 2, 'FFFF'),
+            (0, 1, 'FFFF'),
+            (0, 0, 'FFFF')]
+        border = make_border_from_tiles(tiles_args)
         self.assertEqual(len(border), 16)
         tile = boundary.get_tile(1, 0, 'FFFF')
         segments = border.common_segments(tile)
@@ -104,9 +137,11 @@ class TestBoundary(unittest.TestCase):
 
 
     def test_find_matching_rotations(self):
-        border = boundary.get_tile(0, 0, 'FFFF')
-        border.merge(boundary.get_tile(0, 1, 'FFFF'))
-        border.merge(boundary.get_tile(1, 1, 'TFFF'))
+        tiles_args = [
+            (0, 0, 'FFFF'),
+            (0, 1, 'FFFF'),
+            (1, 1, 'TFFF')]
+        border = make_border_from_tiles(tiles_args)
         border.rotate_to_start_with(Vect(0, 0))
         self.assertEqual(len(border), 8)
         self.assertEqual(border.labels, list('FFTFFFFF'))
