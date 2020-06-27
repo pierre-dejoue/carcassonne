@@ -129,6 +129,8 @@ class GridDisplay:
         self.dbg_info['display_bitsize'] = self.screen.get_bitsize()
         self.dbg_info['display_height'] = self.screen.get_height()
         self.dbg_info['display_width'] = self.screen.get_width()
+        self.dbg_info['tile_size'] = self.tile_size
+        self.dbg_info['current_zoom'] = self.current_zoom
 
 
     def __blit(self, rotated_img, i, j):
@@ -141,6 +143,7 @@ class GridDisplay:
 
     def set_tile(self, image, i, j, r):
         self.dbg_counters['calls_to_set_tile'] += 1
+        self.dbg_info['last_set_tile'] = repr((i, j, r))
         assert image.height() == self.tile_size
         assert image.width() == self.tile_size
         rotated_img = pygame.transform.rotate(image.converted_img(), r * 90)
@@ -150,6 +153,7 @@ class GridDisplay:
 
     def reset_tile(self, i, j):
         self.dbg_counters['calls_to_reset_tile'] += 1
+        self.dbg_info['last_reset_tile'] = repr((i, j, r))
         del tiles[(i, j)]
         black_tile = pygame.Surface((self.tile_size, self.tile_size))
         black_tile.fill(pygame.Color(0, 0, 0))
@@ -175,6 +179,7 @@ class GridDisplay:
         if zoom != self.current_zoom:
             self.screen.fill(pygame.Color(0, 0, 0))
             self.current_zoom = zoom
+            self.dbg_info['current_zoom'] = self.current_zoom
             for coord, img in self.tiles.items():
                 self.__blit(img, coord[0], coord[1])
         pygame.display.flip()
@@ -189,3 +194,6 @@ class GridDisplay:
         for k, v in self.dbg_counters.items():
             dbg[k] = v
         return sorted(dbg.items())
+
+    def take_screenshot(self, img_path = 'screenshot.jpg'):
+        pygame.image.save(self.screen, img_path)

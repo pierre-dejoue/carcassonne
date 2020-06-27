@@ -17,8 +17,9 @@ from collections import deque
 from operator import itemgetter
 
 
-DEFAULT_TILE_SIZE = 100
 DEBUG_PRINTOUT = False
+DEFAULT_TILE_SIZE = 100
+SCREENSHOT_PATH = './screenshot.jpg'
 
 
 def warn(msg):
@@ -286,6 +287,7 @@ def main():
     parser.add_argument('-z', '--zoom-factor', metavar='Z', type=float, dest='zoom_factor', default = 1.0, help='Initial zoom factor (Default: 1.0)')
     parser.add_argument('-d', '--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
     parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
+    parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
     args = parser.parse_args()
 
     # Load tileset (JSON files)
@@ -347,8 +349,10 @@ def main():
         pass
 
     finally:
-        if DEBUG_PRINTOUT and 'display' in locals():
+        if args.take_screenshot and 'display' in locals():
             print(display.get_debug_info())
+            display.take_screenshot(SCREENSHOT_PATH)
+            print('Screenshot saved in {}'.format(SCREENSHOT_PATH))
         graphics.quit()
 
     return 0
