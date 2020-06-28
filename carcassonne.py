@@ -175,10 +175,17 @@ class TileSubset:
 
 
     @staticmethod
-    def river_source():
+    def river_source(n = -1):
         def pred_river_source(tile):
             return 'river' in tile.tags and 'source' in tile.tags
-        return TileSubset(pred_river_source, output_n = 1)
+        return TileSubset(pred_river_source, output_n = n)
+
+
+    @staticmethod
+    def river_exclude_t_shaped():
+        def pred_river_t_shaped(tile):
+            return 'river' in tile.tags and list(tile.desc).count('R') == 3
+        return TileSubset(pred_river_t_shaped, output_n = 0)
 
 
     @staticmethod
@@ -210,13 +217,14 @@ def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True
     return subset_generator(tile_predicates, tileset_iter)
 
 
-def shuffle_tileset(tileset, river = False):
+def shuffle_tileset(tileset, river = False, first_tileset = True):
     all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.remaining_nb) for tile in tileset)
     if river:
         tile_predicates = [
-            TileSubset.river_source(),
+            TileSubset.river_source(1 if first_tileset else 0),
+            TileSubset.river_exclude_t_shaped(),
             TileSubset.river_not_source_nor_sink(),
-            TileSubset.river_sink(),
+            TileSubset.river_sink(0),
             TileSubset.shuffle_remaining()
         ]
     else:
@@ -311,8 +319,7 @@ def main():
         nb_tiles_placed = 0
         first_tileset = True
         while (args.max_tiles == 0 and first_tileset) or total_nb_tiles_placed < args.max_tiles:
-            first_tileset = False
-            tile_subsets_to_place = shuffle_tileset(tileset, river_map_flag)
+            tile_subsets_to_place = shuffle_tileset(tileset, river_map_flag, first_tileset)
             for tiles_to_place in tile_subsets_to_place:
                 while len(tiles_to_place) > 0 and (args.max_tiles == 0 or total_nb_tiles_placed < args.max_tiles):
                     nb_tiles_placed = 0
@@ -340,6 +347,8 @@ def main():
                         print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
                     display.update(z, 100)
                     tiles_to_place = tiles_not_placed
+            display.update(z)
+            first_tileset = False
 
         # Wait until the user quits
         while True:
