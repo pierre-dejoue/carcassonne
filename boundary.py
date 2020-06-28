@@ -123,6 +123,16 @@ class Boundary:
         return other
 
 
+    def get_point(self, idx):
+        current = idx % len(self)
+        return self.points[current]
+
+
+    def get_label(self, idx):
+        current = idx % len(self)
+        return self.labels[current]
+
+
     def get_edge(self, idx):
         current = idx % len(self)
         next = (idx + 1) % len(self)
@@ -229,9 +239,9 @@ class Boundary:
 
 
     def rotate_to_start_with(self, point):
-        i = self.points.index(point)
-        self.points = self.points[i:] + self.points[:i]
-        self.labels = self.labels[i:] + self.labels[:i]
+        idx = self.points.index(point)
+        self.points = self.points[idx:] + self.points[:idx]
+        self.labels = self.labels[idx:] + self.labels[:idx]
 
 
 def from_edge(point, edge, orientation, domain):

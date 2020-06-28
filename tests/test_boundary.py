@@ -37,6 +37,12 @@ class TestBoundary(unittest.TestCase):
     def test_self(self):
         self.assertEqual(len(self.border), 6)
         self.assertEqual(self.border.orientation(), Orientation.COUNTERCLOCKWISE)
+        self.assertEqual(self.border.get_point(2), Vect(2, 0))
+        self.assertEqual(self.border.get_point(8), self.border.get_point(2))
+        self.assertEqual(self.border.get_point(-4), self.border.get_point(2))
+        self.assertEqual(self.border.get_label(2), 'T')
+        self.assertEqual(self.border.get_label(8), self.border.get_label(2))
+        self.assertEqual(self.border.get_label(-4), self.border.get_label(2))
         self.assertEqual(self.border.get_edge(0), Vect(1, 0))
         self.assertEqual(self.border.get_edge(-1), Vect(0, -1))
         self.assertEqual(self.border.bottom_left(), Vect(0, 0))

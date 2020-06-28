@@ -31,6 +31,13 @@ def error(msg):
     exit(-1)
 
 
+def handle_assertion_error():
+    _, _, tb = sys.exc_info()
+    tb_info = traceback.extract_tb(tb)
+    filename, line, func, text = tb_info[-1]
+    warn('An error occurred in file {} line {} in statement "{}"'.format(filename, line, text))
+
+
 class Tile:
     def __init__(self, json_obj, basedir):
         assert 'description' in json_obj.keys()
@@ -85,10 +92,7 @@ def parse_tileset_description_file(json_file):
     except FileNotFoundError:
         warn('Could not load file {}'.format(json_file))
     except AssertionError:
-        _, _, tb = sys.exc_info()
-        tb_info = traceback.extract_tb(tb)
-        filename, line, func, text = tb_info[-1]
-        warn('An error occurred in file {} line {} in statement "{}"'.format(filename, line, text))
+        handle_assertion_error()
     except Exception:
         warn('Error parsing file {}'.format(json_file))
         raise
@@ -131,12 +135,13 @@ class PlacedTile:
         return abs(self.pos[0]) + abs(self.pos[1])
 
 
+    def get_segment(self):
+        return self.segment if self.segment is not None else (0, 0, 0)
+
+
     def get_segment_length(self):
-        if self.segment is None:
-            return 0
-        else:
-            (_, _, L) = self.segment
-            return L
+        (_, _, L) = self.get_segment()
+        return L
 
 
     def draw(self, display):
@@ -264,9 +269,9 @@ def find_candidate_placements(tile, border, max_candidates = -1, forced_segment 
     tagged = set()
     start_idx = random.randrange(N)
     for idx in range(start_idx, start_idx + N):
-        point = border.points[idx % N]
-        label = border.labels[idx % N]
-        edge = border.get_edge(idx % N)
+        point = border.get_point(idx)
+        label = border.get_label(idx)
+        edge = border.get_edge(idx)
         if label is None:
             continue
         if forced_segment is not None and forced_segment != label:
@@ -291,9 +296,10 @@ def find_candidate_placements(tile, border, max_candidates = -1, forced_segment 
 def main():
     parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
     parser.add_argument('files', metavar='FILE', nargs='*', help='Tile description file (JSON format)')
+    parser.add_argument('-d', '--debug', dest='debug_mode', action='store_true', help='Display non-game tiles, etc.')
     parser.add_argument('-n', metavar='N', type=int, dest='max_tiles', default = 0, help='Number of tiles to display (Default: The whole tileset)')
     parser.add_argument('-z', '--zoom-factor', metavar='Z', type=float, dest='zoom_factor', default = 1.0, help='Initial zoom factor (Default: 1.0)')
-    parser.add_argument('-d', '--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
+    parser.add_argument('--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
     parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
     parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
     args = parser.parse_args()
@@ -338,7 +344,7 @@ def main():
                             #display.update(z, 100)
                             nb_tiles_placed += 1
                         else:
-                            warn('Could not placed tile {}'.format(tile.desc))
+                            warn('Could not place tile {}'.format(tile.desc))
                             tiles_not_placed.append(tile)
                     if nb_tiles_placed == 0:
                         break
@@ -358,8 +364,9 @@ def main():
         pass
 
     finally:
-        if args.take_screenshot and 'display' in locals():
+        if args.debug_mode and 'display' in locals():
             print(display.get_debug_info())
+        if (args.take_screenshot or args.debug_mode) and 'display' in locals():
             display.take_screenshot(SCREENSHOT_PATH)
             print('Screenshot saved in {}'.format(SCREENSHOT_PATH))
         graphics.quit()
