@@ -67,7 +67,15 @@ def path_polygon(x0, y0, x1, y1, xc, yc, width_percent):
     ]
 
 
-def draw_tile(desc, size):
+def draw_uniform_tile(color, size):
+    (r, g, b) = color
+    assert is_init()
+    tile = pygame.Surface((size, size))
+    tile.fill(pygame.Color(r, g, b))
+    return Image(tile)
+
+
+def draw_game_tile(desc, size):
     """
     Draw a simplified tile surface based on the tile description.
     For instance : 'FPTP' means Fied, Path, Town and Path sides, rotating counter-clockwise

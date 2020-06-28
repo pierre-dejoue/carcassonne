@@ -39,17 +39,36 @@ def handle_assertion_error():
 
 
 class Tile:
-    def __init__(self, json_obj, basedir):
-        assert 'description' in json_obj.keys()
-        self.desc = json_obj['description']
-        self.remaining_nb = json_obj['cardinality'] if 'cardinality' in json_obj.keys() else 1
-        self.img_path = os.path.join(basedir, json_obj['img']) if 'img' in json_obj.keys() and json_obj['img'] else ''
+    """A game tile defined by the descrption of each of its four sides"""
+    def __init__(self, desc = [None, None, None, None], remaining_nb = 1, img_path = '', tags = []):
+        self.desc = desc
+        self.remaining_nb = remaining_nb
+        self.img_path = img_path
         self.img = None
-        self.tags = []
-        for ii in range(10):
-            key = 'tag' + str(ii)
+        self.tags = tags
+
+
+    @classmethod
+    def from_json_description(cls, json_obj, basedir):
+        assert 'description' in json_obj.keys()
+        desc = json_obj['description']
+        remaining_nb = json_obj['cardinality'] if 'cardinality' in json_obj.keys() else 1
+        img_path = os.path.join(basedir, json_obj['img']) if 'img' in json_obj.keys() and json_obj['img'] else ''
+        tags = []
+        for id in range(10):
+            key = 'tag' + str(id)
             if key in json_obj.keys():
-                self.tags.append(json_obj[key])
+                tags.append(json_obj[key])
+        return cls(desc, remaining_nb, img_path, tags)
+
+
+    @classmethod
+    def from_uniform_color(cls, color, size, tag = ''):
+        tile = cls()
+        tile.img = graphics.draw_uniform_tile(color, size)
+        tile.tags.append(tag)
+        assert tile.get_size() == size
+        return tile
 
 
     def load_image(self):
@@ -62,7 +81,7 @@ class Tile:
 
     def draw_image(self, size):
         assert self.img is None
-        self.img = graphics.draw_tile(self.desc, size)
+        self.img = graphics.draw_game_tile(self.desc, size)
         assert self.get_size() == size
 
 
@@ -82,7 +101,7 @@ def parse_tileset_description_file(json_file):
         tileset_json = json.load(fp)
         assert 'tiles' in tileset_json.keys()
         for tile_json in tileset_json['tiles']:
-            tile = Tile(tile_json, os.path.dirname(json_file))
+            tile = Tile.from_json_description(tile_json, os.path.dirname(json_file))
             assert tile.remaining_nb >= 0
             if tile.remaining_nb > 0:
                 if 'start' in tile.tags:
@@ -312,6 +331,9 @@ def main():
         # Load tile images, and draw missing ones
         graphics.init()
         tile_size = load_or_draw_tile_images(tileset, args.draw_all)
+
+        # Non-game tiles
+        riverside_tile = Tile.from_uniform_color((217, 236, 255), tile_size, 'riverside')
 
         # Open display
         (w, h) = (0, 0) if args.full_screen else (1280, 720)
