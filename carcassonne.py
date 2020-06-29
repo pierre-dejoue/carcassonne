@@ -14,7 +14,6 @@ from boundary import Boundary
 from boundary import Domain
 from boundary import Orientation
 from collections import deque
-from operator import itemgetter
 
 
 DEBUG_PRINTOUT = False
@@ -163,6 +162,20 @@ class PlacedTile:
         return L
 
 
+    def iter_segment(self):
+        (_, j, L) = self.get_segment()
+        return self.get_boundary().iter_slice(j, j + L)
+
+
+    def iter_complement_segment(self):
+        (_, j, L) = self.get_segment()
+        tile_border = self.get_boundary()
+        if L == 0:
+            return itertools.chain(tile_border.iter_slice(j, 0), tile_border.iter_slice(0, j))
+        else:
+            return tile_border.iter_slice(j + L, j)
+
+
     def draw(self, display):
         assert self.tile.img is not None
         display.set_tile(self.tile.img, self.pos[0], self.pos[1], self.r)
@@ -278,7 +291,24 @@ def select_tile_placement(candidate_placements):
     return candidate_placements[0]
 
 
-def find_candidate_placements(tile, border, max_candidates = -1, forced_segment = None):
+def validate_tile_placement(placed_tile, border):
+    # Trivial except for river tiles
+    if 'R' in Boundary.label_getter(placed_tile.iter_segment()):
+        test_border = border.copy()
+        test_border.merge(placed_tile.get_boundary())
+        for (point, edge, label) in placed_tile.iter_complement_segment():
+            if label == 'R':
+                test_tile_border = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
+                common_segments = test_border.common_segments(test_tile_border)
+                if len(common_segments) != 1:
+                    return False
+                (_, _, L) = common_segments[0]
+                if L != 1:
+                    return False
+    return True
+
+
+def find_candidate_placements(tile, border, max_candidates = -1, force_edge_label = None):
     N = len(border)
 
     if N == 0:
@@ -293,7 +323,7 @@ def find_candidate_placements(tile, border, max_candidates = -1, forced_segment 
         edge = border.get_edge(idx)
         if label is None:
             continue
-        if forced_segment is not None and forced_segment != label:
+        if force_edge_label is not None and label != force_edge_label:
             continue
         tile_border = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
         pos = tile_border.bottom_left()
@@ -305,8 +335,10 @@ def find_candidate_placements(tile, border, max_candidates = -1, forced_segment 
         common_segments = border.common_segments(tile_border)
         if len(common_segments) != 1:
             continue
-        rotations = border.find_matching_rotations(tile_border, common_segments[0])
-        candidate_placements.extend(PlacedTile(tile, pos.x, pos.y, r, common_segments[0]) for r in rotations)
+        for r in border.find_matching_rotations(tile_border, common_segments[0]):
+            placed_tile = PlacedTile(tile, pos.x, pos.y, r, common_segments[0])
+            if validate_tile_placement(placed_tile, border):
+                candidate_placements.append(placed_tile)
         if max_candidates > 0 and len(candidate_placements) >= max_candidates:
             break
     return candidate_placements

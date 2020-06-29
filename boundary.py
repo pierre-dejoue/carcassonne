@@ -1,4 +1,5 @@
 from enum import Enum
+import operator
 
 
 class Vect:
@@ -67,6 +68,28 @@ class Domain(Enum):
     EXTERIOR = 1
 
 
+class CompareLabels:
+    @staticmethod
+    def treat_none_as_regular_label(label_a, label_b):
+        return label_a == label_b
+
+
+    @staticmethod
+    def treat_none_as_match_always(label_a, label_b):
+        if label_a is None or label_b is None:
+            return True
+        else:
+            return label_a == label_b
+
+
+    @staticmethod
+    def treat_none_as_match_never(label_a, label_b):
+        if label_a is None or label_b is None:
+            return False
+        else:
+            return label_a == label_b
+
+
 class Boundary:
     def __init__(self):
         self.points = []
@@ -114,7 +137,7 @@ class Boundary:
         imod = i % len(self)
         jmod = j % len(self)
         other = Boundary()
-        if imod < jmod:
+        if imod <= jmod:
             other.points = self.points[imod:jmod]
             other.labels = self.labels[imod:jmod]
         else:
@@ -137,6 +160,22 @@ class Boundary:
         current = idx % len(self)
         next = (idx + 1) % len(self)
         return self.points[next] - self.points[current]
+
+
+    def iter_slice(self, i, j):
+        imod = i % len(self)
+        jmod = j % len(self)
+        if imod <= jmod:
+            range_indices = range(imod, jmod)
+        else:
+            range_indices = range(imod, jmod + len(self))
+        for idx in range_indices:
+            yield (self.get_point(idx), self.get_edge(idx), self.get_label(idx))
+
+
+    point_getter = lambda iter: map(operator.itemgetter(0), iter)
+    edge_getter = lambda iter: map(operator.itemgetter(1), iter)
+    label_getter = lambda iter: map(operator.itemgetter(2), iter)
 
 
     def orientation(self):
@@ -201,14 +240,18 @@ class Boundary:
         return common_segments
 
 
-    def find_matching_rotations(self, other, common_segment):
+    def find_matching_rotations(self, other, common_segment, cmp = CompareLabels.treat_none_as_regular_label):
         assert self.orientation() == other.orientation()
         (i, j, L) = common_segment
         assert L > 0
+        assert L < len(self)
+        assert L < len(other)
         self_labels = self.__slice(i, i + L).labels
         self_labels.reverse()
         for r in range(len(other)):
-            if other.__slice(j - r, j - r + L).labels == self_labels:
+            other_labels = other.__slice(j - r, j - r + L).labels
+            assert len(other_labels) == len(self_labels)
+            if all(cmp(*args) for args in zip(self_labels, other_labels)):
                 yield r
 
 
@@ -225,6 +268,9 @@ class Boundary:
                 (i, j, L) = segments[0]
             else:
                 (i, j, L) = hint_common_segment
+            assert L > 0
+            assert L < len(self)
+            assert L < len(other)
             merged = Boundary()
             merged.__append(other.__slice(j + L, j))
             merged.__append(self.__slice(i + L, i))
