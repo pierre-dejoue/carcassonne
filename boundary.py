@@ -41,6 +41,10 @@ class Vect:
         return self.x * other.y - self.y * other.x
 
 
+    def l1_distance(self):
+        return abs(self.x) + abs(self.y)
+
+
     def rotate(self, r):
         rmod = r % 4
         if rmod == 0:
@@ -291,6 +295,7 @@ class Boundary:
 
 
 def from_edge(point, edge, orientation, domain):
+    assert isinstance(point, Vect)
     assert isinstance(edge, Vect)
     assert isinstance(orientation, Orientation)
     assert isinstance(domain, Domain)
@@ -305,11 +310,11 @@ def from_edge(point, edge, orientation, domain):
     return border
 
 
-def get_tile(i, j, desc = [None, None, None, None]):
+def get_tile(bottom_left, desc = [None, None, None, None]):
+    """Instantiate the boundary of a unit square tile given the coordinates of its bottom left corner and a description"""
+    assert isinstance(bottom_left, Vect)
     assert len(desc) == 4
     border = Boundary()
-    border.append(Vect(i, j), desc[0])
-    border.append(Vect(i+1, j), desc[1])
-    border.append(Vect(i+1, j+1), desc[2])
-    border.append(Vect(i, j+1), desc[3])
+    for idx, delta in enumerate([ Vect(0, 0), Vect(1, 0), Vect(1, 1), Vect(0, 1) ]):
+        border.append(bottom_left + delta, desc[idx])
     return border

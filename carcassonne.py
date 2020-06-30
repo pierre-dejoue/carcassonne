@@ -13,6 +13,7 @@ import traceback
 from boundary import Boundary
 from boundary import Domain
 from boundary import Orientation
+from boundary import Vect
 from collections import deque
 
 
@@ -142,15 +143,15 @@ def load_or_draw_tile_images(tileset, draw_all = False):
 
 
 class PlacedTile:
-    def __init__(self, tile, i, j, r, segment = None):
+    def __init__(self, tile, pos, r, segment = None):
         self.tile = tile
-        self.pos = (i, j)
+        self.pos = pos
         self.r = r
         self.segment = segment  # Common segment between the border and this tile
 
 
     def get_l1_distance(self):
-        return abs(self.pos[0]) + abs(self.pos[1])
+        return self.pos.l1_distance()
 
 
     def get_segment(self):
@@ -178,13 +179,13 @@ class PlacedTile:
 
     def draw(self, display):
         assert self.tile.img is not None
-        display.set_tile(self.tile.img, self.pos[0], self.pos[1], self.r)
+        display.set_tile(self.tile.img, self.pos.x, self.pos.y, self.r)
 
 
     def get_boundary(self):
         desc = deque(self.tile.desc)
         desc.rotate(self.r)
-        return boundary.get_tile(self.pos[0], self.pos[1], desc)
+        return boundary.get_tile(self.pos, desc)
 
 
 class TileSubset:
@@ -312,7 +313,7 @@ def find_candidate_placements(tile, border, max_candidates = -1, force_edge_labe
     N = len(border)
 
     if N == 0:
-        return [PlacedTile(tile, 0, 0, 0)]     # Corner case: The first tile of the map
+        return [PlacedTile(tile, Vect(0, 0), r = 0)]    # Corner case: The first tile of the map
 
     candidate_placements = []
     tagged = set()
@@ -336,7 +337,7 @@ def find_candidate_placements(tile, border, max_candidates = -1, force_edge_labe
         if len(common_segments) != 1:
             continue
         for r in border.find_matching_rotations(tile_border, common_segments[0]):
-            placed_tile = PlacedTile(tile, pos.x, pos.y, r, common_segments[0])
+            placed_tile = PlacedTile(tile, pos, r, common_segments[0])
             if validate_tile_placement(placed_tile, border):
                 candidate_placements.append(placed_tile)
         if max_candidates > 0 and len(candidate_placements) >= max_candidates:
