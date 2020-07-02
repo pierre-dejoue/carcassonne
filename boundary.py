@@ -1,4 +1,5 @@
 from enum import Enum
+import functools
 import operator
 
 
@@ -183,35 +184,41 @@ class Boundary:
 
 
     def orientation(self):
-        cross_z = sum(self.get_edge(i).cross_z(self.get_edge(i + 1)) for i in range(len(self)))
-        if cross_z > 0:
+        def cumul_cross_z(cumul_tuple, edge):
+            (sum, prev_edge) = cumul_tuple
+            return (sum + prev_edge.cross_z(edge), edge)
+
+        sum_cross_z, _ = functools.reduce(cumul_cross_z, (self.get_edge(idx) for idx in range(len(self))), (0, self.get_edge(-1)))
+        if sum_cross_z > 0:
             return Orientation.COUNTERCLOCKWISE
-        elif cross_z < 0:
+        elif sum_cross_z < 0:
             return Orientation.CLOCKWISE
         else:
-            return 0
+            return Orientation.UNDEFINED
 
 
     def is_unique_points(self):
         return len(set(self.points)) == len(self.points)
 
 
-    def __points_and_indices(self):
-        return dict([(self.points[i], i) for i in range(len(self))])
-
-
     def common_segments(self, other):
-        """Returns the common segments between two boundaries as a list of tuples (i, j, l) where:
+        """
+        Returns the common segments between two boundaries as a list of tuples (i, j, l) where:
             i: start of the segment in this boundary
             j: start of the segment in the other boundary
             l: length of the segment
+
+        Assumptions:
+            The other boundary is outside of this boundary.
+            The two boundaries have the same orientation.
         """
         assert self.is_unique_points()
         assert other.is_unique_points()
+        #assert self.orientation() == other.orientation()
 
         # Identify common points and their respective indices. Those are considered "segments of length 0".
-        self_points = self.__points_and_indices()
-        other_points = other.__points_and_indices()
+        self_points = dict((p, i) for (i, p) in enumerate(self.points))
+        other_points = dict((p, i) for (i, p) in enumerate(other.points))
         common_points = set(self_points.keys()) & set(other_points.keys())
         common_segments_length_0 = sorted([(self_points[p], other_points[p], 0) for p in common_points])
 
@@ -245,7 +252,7 @@ class Boundary:
 
 
     def find_matching_rotations(self, other, common_segment, cmp = CompareLabels.treat_none_as_regular_label):
-        assert self.orientation() == other.orientation()
+        #assert self.orientation() == other.orientation()
         (i, j, L) = common_segment
         assert L > 0
         assert L < len(self)
@@ -262,10 +269,9 @@ class Boundary:
     def merge(self, other, hint_common_segment = None):
         """Assuming the two boundaries share a unique common segment and have the same orientation, merge them into a single boundary"""
         if len(self) == 0:
-            assert hint_common_segment is None
             self.__replace(other)
         else:
-            assert self.orientation() == other.orientation()
+            #assert self.orientation() == other.orientation()
             if hint_common_segment is None:
                 segments = self.common_segments(other)
                 assert len(segments) == 1

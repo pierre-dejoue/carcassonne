@@ -31,6 +31,11 @@ def error(msg):
     exit(-1)
 
 
+def override(f):
+    # Eye-candy decorator
+    return f
+
+
 def handle_assertion_error():
     _, _, tb = sys.exc_info()
     tb_info = traceback.extract_tb(tb)
@@ -39,27 +44,31 @@ def handle_assertion_error():
 
 
 class Tile:
-    """A game tile defined by the descrption of each of its four sides"""
-    def __init__(self, desc = [None, None, None, None], remaining_nb = 1, img_path = '', tags = []):
+    """A tile (usually a game tile) defined by the description of its four sides (desc), its cardinality (max_nb) and optionally a graphical representation (img)"""
+    def __init__(self, desc = [None, None, None, None], max_nb = 1, img_path = '', tags = []):
         self.desc = desc
-        self.remaining_nb = remaining_nb
+        self.max_nb = max_nb
         self.img_path = img_path
         self.img = None
         self.tags = tags
+
+
+    def __repr__(self):
+        return 'Tile({})'.format(self.desc)
 
 
     @classmethod
     def from_json_description(cls, json_obj, basedir):
         assert 'description' in json_obj.keys()
         desc = json_obj['description']
-        remaining_nb = json_obj['cardinality'] if 'cardinality' in json_obj.keys() else 1
+        max_nb = json_obj['cardinality'] if 'cardinality' in json_obj.keys() else 1
         img_path = os.path.join(basedir, json_obj['img']) if 'img' in json_obj.keys() and json_obj['img'] else ''
         tags = []
         for id in range(10):
             key = 'tag' + str(id)
             if key in json_obj.keys():
                 tags.append(json_obj[key])
-        return cls(desc, remaining_nb, img_path, tags)
+        return cls(desc, max_nb, img_path, tags)
 
 
     @classmethod
@@ -102,11 +111,11 @@ def parse_tileset_description_file(json_file):
         assert 'tiles' in tileset_json.keys()
         for tile_json in tileset_json['tiles']:
             tile = Tile.from_json_description(tile_json, os.path.dirname(json_file))
-            assert tile.remaining_nb >= 0
-            if tile.remaining_nb > 0:
+            assert tile.max_nb >= 0
+            if tile.max_nb > 0:
                 if 'start' in tile.tags:
-                    assert tile.remaining_nb == 1
-                cumul += tile.remaining_nb
+                    assert tile.max_nb == 1
+                cumul += tile.max_nb
                 yield tile
     except FileNotFoundError:
         warn('Could not load file {}'.format(json_file))
@@ -142,12 +151,19 @@ def load_or_draw_tile_images(tileset, draw_all = False):
     return tile_size
 
 
-class PlacedTile:
-    def __init__(self, tile, pos, r, segment = None):
-        self.tile = tile
+class PositionedTile:
+    """Declare a position on the grid where a tile could be placed"""
+    def __init__(self, pos, segments = []):
+        assert isinstance(pos, Vect)
         self.pos = pos
-        self.r = r
-        self.segment = segment  # Common segment between the border and this tile
+        if len(segments) == 1:
+            self.segment = segments[0]  # Common segment between the current map boundary and this tile
+        else:
+            self.segment = None         # Use None if unknown, or to indicate a forbidden position
+
+
+    def __repr__(self):
+        return 'PositionedTile(pos = {}, segment = {})'.format(self.pos, self.segment)
 
 
     def get_l1_distance(self):
@@ -172,9 +188,34 @@ class PlacedTile:
         (_, j, L) = self.get_segment()
         tile_border = self.get_boundary()
         if L == 0:
-            return itertools.chain(tile_border.iter_slice(j, 0), tile_border.iter_slice(0, j))
+            return itertools.chain(tile_border.iter_slice(j, j + 1), tile_border.iter_slice(j + 1, j))
         else:
             return tile_border.iter_slice(j + L, j)
+
+
+    def get_boundary(self, desc = [None, None, None, None]):
+        return boundary.get_tile(self.pos, desc)
+
+
+class PlacedTile(PositionedTile):
+    """Declares a Tile placed on the grid, with its position and orientation (r)"""
+    def __init__(self, tile, pos, r, segment = None):
+        assert isinstance(tile, Tile)
+        PositionedTile.__init__(self, pos, [] if segment is None else [segment])
+        self.tile = tile
+        self.r = r
+
+
+    @override
+    def __repr__(self):
+        return 'PlacedTile(pos = {}, r = {}, segment = {}, tile = {})'.format(self.pos, self.r, self.segment, self.tile)
+
+
+    @classmethod
+    def from_positioned_tile(cls, pos_tile, tile, r):
+        assert isinstance(pos_tile, PositionedTile)
+        assert isinstance(tile, Tile)
+        return cls(tile, pos_tile.pos, r, pos_tile.segment)
 
 
     def draw(self, display):
@@ -182,10 +223,11 @@ class PlacedTile:
         display.set_tile(self.tile.img, self.pos.x, self.pos.y, self.r)
 
 
+    @override
     def get_boundary(self):
         desc = deque(self.tile.desc)
         desc.rotate(self.r)
-        return boundary.get_tile(self.pos, desc)
+        return PositionedTile.get_boundary(self, desc)
 
 
 class TileSubset:
@@ -256,7 +298,7 @@ def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True
 
 
 def shuffle_tileset(tileset, river = False, first_tileset = True):
-    all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.remaining_nb) for tile in tileset)
+    all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.max_nb) for tile in tileset)
     if river:
         tile_predicates = [
             TileSubset.river_source(1 if first_tileset else 0),
@@ -273,23 +315,101 @@ def shuffle_tileset(tileset, river = False, first_tileset = True):
     return list(apply_tile_predicates(tile_predicates, all_tiles))
 
 
-def select_tile_placement(candidate_placements):
-    """
-    A candidate tile placement is an unoccupied tile adjacent to the map boundary.
-    In order to prioritize a placement among all candidates, the following parameters are used:
-     - The length of the segment in contact with the boundary
-     - The L1 distance of the tile to the center of the map
+class CandidateTiles:
+    def __init__(self, on_update = None, on_delete = None):
+        assert not on_update or callable(on_update)
+        assert not on_delete or callable(on_delete)
+        self.sorted_positions = []          # List of positions
+        self.tiles = dict()                 # Dict of position -> PositionedTile
+        self.nb_to_be_deleted = 0
+        self.on_update = on_update
+        self.on_delete = on_delete
 
-    candidate_placements: A list of PlacedTile objects
-    """
-    assert len(candidate_placements) > 0
-    candidate_placements.sort(key=PlacedTile.get_l1_distance)
-    candidate_placements.sort(key=PlacedTile.get_segment_length, reverse=True)
-    if DEBUG_PRINTOUT:
-        print("Candidates in decreasing priority:")
-        for placed_tile in candidate_placements:
-            print('nb_contact_sides={}, pos=({}, {}), r={}'.format(placed_tile.get_segment_length(), placed_tile.pos[0], placed_tile.pos[1], placed_tile.r))
-    return candidate_placements[0]
+
+    def __len__(self):
+        return len(self.tiles)
+
+
+    def allocated(self):
+        return len(self.sorted_positions)
+
+
+    @staticmethod
+    def to_be_deleted(pos_tile):
+        # Ad hoc criteria to identify a tile to be deleted
+        return pos_tile.get_segment_length() == 0
+
+
+    def iterate(self):
+        for pos in self.sorted_positions:
+            if pos in self.tiles:
+                yield self.tiles[pos]
+
+
+    def update(self, pos_tile):
+        assert isinstance(pos_tile, PositionedTile)
+        if self.on_update:
+            self.on_update(pos_tile)
+        if self.to_be_deleted(pos_tile):
+            self.delete(pos_tile.pos)
+        else:
+            if pos_tile.pos not in self.tiles:
+                if pos_tile.pos not in self.sorted_positions:
+                    self.sorted_positions.append(pos_tile.pos)
+                else:
+                    # We are restoring a deleted entry
+                    assert self.nb_to_be_deleted > 0
+                    self.nb_to_be_deleted -= 1
+            self.tiles[pos_tile.pos] = pos_tile
+
+
+    def delete(self, pos):
+        assert isinstance(pos, Vect)
+        if self.on_delete:
+            self.on_delete(pos)
+        if pos in self.tiles:
+            self.nb_to_be_deleted += 1
+            del self.tiles[pos]
+
+
+    def __resize(self):
+        assert self.allocated() == len(self) + self.nb_to_be_deleted
+        assert all(self.sorted_positions[idx] not in self.tiles for idx in range(len(self), self.allocated()))
+        del self.sorted_positions[len(self):]
+        self.nb_to_be_deleted = 0
+        assert self.allocated() == len(self) + self.nb_to_be_deleted
+
+
+    def force_resize(self):
+        self.sorted_positions.sort(key = lambda pos: 0 if pos in self.tiles else 1)
+        self.__resize()
+
+
+    def __sort_key(self, key_on_positioned_tile, reverse, pos):
+        if pos not in self.tiles:
+            return -sys.maxsize if reverse else sys.maxsize
+        else:
+            return key_on_positioned_tile(self.tiles[pos])
+
+
+    def __sort(self, key_on_positioned_tile, reverse):
+        self.sorted_positions.sort(key = lambda pos: self.__sort_key(key_on_positioned_tile, reverse, pos), reverse = reverse)
+
+
+    def sort(self, key, reverse = False):
+        self.__sort(key, reverse)
+        # Resize if the nb of tiles marked for deletion is passed a certain threshold
+        if len(self) > 0 and (self.allocated() / len(self)) > 1.333:
+            self.__resize()
+
+
+    def debug_printout(self):
+        print('Candidates: (used/total: {}/{})'.format(len(self.tiles), len(self.sorted_positions)))
+        for pos in self.sorted_positions:
+            if pos in self.tiles:
+                print('nb_contact_sides={}, pos={}'.format(self.tiles[pos].get_segment_length(), pos))
+            else:
+                print('to_be_deleted, pos={}'.format(pos))
 
 
 def validate_tile_placement(placed_tile, border):
@@ -309,35 +429,81 @@ def validate_tile_placement(placed_tile, border):
     return True
 
 
-def find_candidate_placements(tile, border, max_candidates = -1, force_edge_label = None):
-    N = len(border)
+def update_border_and_candidate_tiles(placed_tile, border, candidate_tiles):
+    """
+    This function updates the map boundary and the candidate tile placements
 
-    if N == 0:
-        return [PlacedTile(tile, Vect(0, 0), r = 0)]    # Corner case: The first tile of the map
+    Arguments:
+        placed_tile     The tile being added to the map boundary
+        border          The current map boundary
+        candidate_tiles The list of candidate tiles along the map boundary
 
+    Notes:
+    A candidate tile placement is an unoccupied tile adjacent to the map boundary.
+    In order to prioritize a tile placement among other candidates, the following parameters are used:
+     - The length of the segment in contact with the map boundary
+     - The L1 distance of the tile to the center of the map
+    """
+    assert isinstance(placed_tile, PlacedTile)
+    assert isinstance(border, Boundary)
+    assert isinstance(candidate_tiles, CandidateTiles)
+
+    # Merge the newly placed tile to the map boundary
+    border.merge(placed_tile.get_boundary())
+
+    # Account for the change in the map boundary in candidate_tiles
+    candidate_tiles.delete(placed_tile.pos)
+    prev_point = None
+    prev_edge = None
+    for (point, edge, _) in placed_tile.iter_complement_segment():
+        to_update = [(point, edge)]
+        if prev_point:
+            assert prev_edge is not None
+            to_update.append((prev_point + prev_edge, prev_edge))
+        prev_point = point
+        prev_edge = edge
+        for (p, e) in to_update:
+            tile_border = boundary.from_edge(p, e, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
+            pos = tile_border.bottom_left()
+            tile_border.rotate_to_start_with(pos)
+            candidate_tiles.update(PositionedTile(pos, border.common_segments(tile_border)))
+
+    # Sort the updated list of candidates
+    candidate_tiles.sort(key=PlacedTile.get_l1_distance)
+    candidate_tiles.sort(key=PlacedTile.get_segment_length, reverse=True)
+    if DEBUG_PRINTOUT:
+        candidate_tiles.debug_printout()
+    return placed_tile
+
+
+def select_tile_placement(candidate_placements):
+    assert isinstance(candidate_placements, list)       # NB: A list of PlacedTile
+    assert len(candidate_placements) > 0
+    # Nothing fancy
+    return candidate_placements[0]
+
+
+def find_candidate_placements(tile, border, candidate_tiles, max_candidates = -1, force_edge_label = None):
+    assert isinstance(tile, Tile)
+    assert isinstance(border, Boundary)
+    assert len(border) > 0
+    assert isinstance(candidate_tiles, CandidateTiles)
+    assert len(candidate_tiles) > 0
     candidate_placements = []
-    tagged = set()
-    start_idx = random.randrange(N)
-    for idx in range(start_idx, start_idx + N):
-        point = border.get_point(idx)
-        label = border.get_label(idx)
-        edge = border.get_edge(idx)
-        if label is None:
+    for pos_tile in candidate_tiles.iterate():
+        (i0, j0, L0) = pos_tile.get_segment()
+        assert L0 > 0
+        tile_border = pos_tile.get_boundary(list(tile.desc))
+        # Recompute PositionedTile because the common segment's 'i' index will not match
+        pos_tile = PositionedTile(pos_tile.pos, border.common_segments(tile_border))
+        (i1, j1, L1) = pos_tile.get_segment()
+        if (j0, L0) != (j1, L1):
+            warn('Incoherent common segments for tile at {} in candidate_tiles: {} and computed against the current border: {}'.format(pos_tile.pos, (i0, j0, L0), (i1, j1, L1)))
             continue
-        if force_edge_label is not None and label != force_edge_label:
+        if force_edge_label is not None and force_edge_label not in Boundary.label_getter(border.iter_slice(i1, i1 + L1)):
             continue
-        tile_border = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
-        pos = tile_border.bottom_left()
-        if pos in tagged:
-            continue
-        tagged.add(pos)
-        tile_border.rotate_to_start_with(pos)
-        tile_border.set_labels(list(tile.desc))
-        common_segments = border.common_segments(tile_border)
-        if len(common_segments) != 1:
-            continue
-        for r in border.find_matching_rotations(tile_border, common_segments[0]):
-            placed_tile = PlacedTile(tile, pos, r, common_segments[0])
+        for r in border.find_matching_rotations(tile_border, pos_tile.get_segment()):
+            placed_tile = PlacedTile.from_positioned_tile(pos_tile, tile, r)
             if validate_tile_placement(placed_tile, border):
                 candidate_placements.append(placed_tile)
         if max_candidates > 0 and len(candidate_placements) >= max_candidates:
@@ -367,6 +533,12 @@ def main():
 
         # Non-game tiles
         riverside_tile = Tile.from_uniform_color((217, 236, 255), tile_size, 'riverside')
+        forbidden_tile = Tile.from_uniform_color((100,  20,  20), tile_size, 'forbidden')
+        segment_length_tiles = {
+            0: forbidden_tile,
+            1: Tile.from_uniform_color((10,  60, 10), tile_size, 'one_side'),
+            2: Tile.from_uniform_color((40, 120, 40), tile_size, 'two_sides'),
+            3: Tile.from_uniform_color((70, 180, 70), tile_size, 'three_sides') }
 
         # Open display
         (w, h) = (0, 0) if args.full_screen else (1280, 720)
@@ -375,6 +547,9 @@ def main():
 
         # Place random tiles. The map must grow!
         border = Boundary()
+        candidate_tiles = CandidateTiles(
+            on_update = lambda pos_tile: display.set_tile(segment_length_tiles[pos_tile.get_segment_length()].img, pos_tile.pos.x, pos_tile.pos.y) if args.debug_mode else None,
+            on_delete = None)
         z = args.zoom_factor
         total_nb_tiles_placed = 0
         nb_tiles_placed = 0
@@ -388,16 +563,20 @@ def main():
                     for tile in tiles_to_place:
                         if args.max_tiles > 0 and total_nb_tiles_placed + nb_tiles_placed >= args.max_tiles:
                             break
-                        forced_segment = 'R' if 'river' in tile.tags and 'source' not in tile.tags else None
-                        max_candidates = 20
-                        candidates = find_candidate_placements(tile, border, max_candidates, forced_segment)
-                        if len(candidates) > 0:
-                            placed_tile = select_tile_placement(candidates)
-                            border.merge(placed_tile.get_boundary(), placed_tile.segment)
+                        if len(border) == 0:
+                            # The first tile of the map
+                            placed_tile = PlacedTile(tile, Vect(0, 0), r = 0)
+                        else:
+                            forced_segment = 'R' if 'river' in tile.tags and 'source' not in tile.tags else None
+                            max_candidates = 1
+                            candidate_placements = find_candidate_placements(tile, border, candidate_tiles, max_candidates, forced_segment)
+                            placed_tile = select_tile_placement(candidate_placements) if len(candidate_placements) > 0 else None
+                        if placed_tile:
+                            update_border_and_candidate_tiles(placed_tile, border, candidate_tiles)
                             placed_tile.draw(display)
+                            nb_tiles_placed += 1
                             #z = 0.995 * z
                             #display.update(z, 100)
-                            nb_tiles_placed += 1
                         else:
                             warn('Could not place tile {}'.format(tile.desc))
                             tiles_not_placed.append(tile)
@@ -406,7 +585,7 @@ def main():
                     total_nb_tiles_placed += nb_tiles_placed
                     if DEBUG_PRINTOUT:
                         print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
-                    display.update(z, 100)
+                    display.update(z)
                     tiles_to_place = tiles_not_placed
             display.update(z)
             first_tileset = False

@@ -10,7 +10,7 @@ TILE_COLORS = {
     'P': pygame.Color(234, 234, 209),       # Path
     'R': pygame.Color(0,   0,   200),       # River
 }
-UNKNOWN_DESC_COLOR = pygame.Color(255, 0,   200)
+UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
 
 
 def init():
@@ -149,7 +149,7 @@ class GridDisplay:
         self.screen.blit(scaled_img, pos)
 
 
-    def set_tile(self, image, i, j, r):
+    def set_tile(self, image, i, j, r = 0):
         self.dbg_counters['calls_to_set_tile'] += 1
         self.dbg_info['last_set_tile'] = repr((i, j, r))
         assert image.height() == self.tile_size
