@@ -150,6 +150,7 @@ class GridDisplay:
 
 
     def set_tile(self, image, i, j, r = 0):
+        assert isinstance(image, Image)
         self.dbg_counters['calls_to_set_tile'] += 1
         self.dbg_info['last_set_tile'] = repr((i, j, r))
         assert image.height() == self.tile_size

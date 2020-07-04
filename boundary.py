@@ -1,5 +1,6 @@
 from enum import Enum
 import functools
+import itertools
 import operator
 
 
@@ -32,6 +33,10 @@ class Vect:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+
+    def __lt__(self, other):
+        return self.cmp_key() < other.cmp_key()
 
 
     def mult(self, m):
@@ -165,6 +170,12 @@ class Boundary:
         current = idx % len(self)
         next = (idx + 1) % len(self)
         return self.points[next] - self.points[current]
+
+
+    def iter_all(self, starting_idx = 0):
+        imod = starting_idx % len(self)
+        for idx in itertools.chain(range(imod, len(self)), range(0, imod)):
+            yield (self.get_point(idx), self.get_edge(idx), self.get_label(idx))
 
 
     def iter_slice(self, i, j):

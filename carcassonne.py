@@ -3,11 +3,14 @@
 
 import argparse
 import boundary
+import functools
 import graphics
 import itertools
 import json
+import operator
 import os.path
 import random
+import re
 import sys
 import traceback
 from boundary import Boundary
@@ -162,6 +165,17 @@ class PositionedTile:
             self.segment = None         # Use None if unknown, or to indicate a forbidden position
 
 
+    @classmethod
+    def from_boundary_edge(cls, border, point, edge, domain = Domain.EXTERIOR):
+        assert isinstance(border, Boundary)
+        assert isinstance(point, Vect)
+        assert isinstance(edge, Vect)
+        tile_border = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, domain)
+        pos = tile_border.bottom_left()
+        tile_border.rotate_to_start_with(pos)
+        return cls(pos, border.common_segments(tile_border))
+
+
     def __repr__(self):
         return 'PositionedTile(pos = {}, segment = {})'.format(self.pos, self.segment)
 
@@ -188,7 +202,7 @@ class PositionedTile:
         (_, j, L) = self.get_segment()
         tile_border = self.get_boundary()
         if L == 0:
-            return itertools.chain(tile_border.iter_slice(j, j + 1), tile_border.iter_slice(j + 1, j))
+            return tile_border.iter_all(j)
         else:
             return tile_border.iter_slice(j + L, j)
 
@@ -219,6 +233,7 @@ class PlacedTile(PositionedTile):
 
 
     def draw(self, display):
+        assert isinstance(display, graphics.GridDisplay)
         assert self.tile.img is not None
         display.set_tile(self.tile.img, self.pos.x, self.pos.y, self.r)
 
@@ -230,6 +245,56 @@ class PlacedTile(PositionedTile):
         return PositionedTile.get_boundary(self, desc)
 
 
+class CompositeTile:
+    class Elt:
+        def __init__(self, tile, offset):
+            assert isinstance(tile, Tile)
+            assert isinstance(offset, Vect)
+            self.tile = tile
+            self.offset = offset
+
+
+    vect_re = re.compile('[Vv]ect_(\d+)_(\d+)')
+
+
+    def __init__(self):
+        self.elts = []
+
+
+    def append(self, tile):
+        offset = None
+        for tag in tile.tags:
+            result = self.vect_re.match(tag)
+            if result:
+                offset = Vect(int(result.group(1)), int(result.group(2)))
+        if offset:
+            self.elts.append(CompositeTile.Elt(tile, offset))
+        else:
+            warn('Could not find the offset pattern in the tags for tile {}. Tags = {}.'.format(tile, tile.tags))
+
+
+    def __reduce(self, fun, initializer = None):
+        self.elts.sort(key=operator.attrgetter('offset'))
+        return functools.reduce(fun, self.elts, initializer)
+
+
+    def draw(self, display, pos, r = 0):
+        assert isinstance(pos, Vect)
+        assert isinstance(display, graphics.GridDisplay)
+        def draw_elt(_, elt):
+            PlacedTile(elt.tile, pos + elt.offset.rotate(r), r).draw(display)
+            return None
+        self.__reduce(draw_elt)
+
+
+    def get_boundary(self, pos, r = 0):
+        assert isinstance(pos, Vect)
+        def merge_boundary(border, elt):
+            border.merge(PlacedTile(elt.tile, pos + elt.offset.rotate(r), r).get_boundary())
+            return border
+        return self.__reduce(merge_boundary, Boundary())
+
+
 class TileSubset:
     def __init__(self, predicate, shuffle = True, output_n = -1):
         self.predicate = predicate
@@ -237,7 +302,7 @@ class TileSubset:
         self.output_n = output_n    # If < 0, output all
 
 
-    def partition(self, tileset_iter):
+    def partition_iter(self, tileset_iter):
         it0, it1 = itertools.tee(tileset_iter)
         selection = list(filter(self.predicate, it0))
         if self.shuffle:
@@ -247,11 +312,23 @@ class TileSubset:
         return (selection, itertools.filterfalse(self.predicate, it1))
 
 
+    def partition(self, tileset_iter):
+        part1, part2_iter = self.partition_iter(tileset_iter)
+        return part1, list(part2_iter)
+
+
     @staticmethod
-    def regular_start():
+    def regular_start(n = 1):
         def pred_regular_start(tile):
             return 'start' in tile.tags and 'river' not in tile.tags
-        return TileSubset(pred_regular_start, output_n = 1)
+        return TileSubset(pred_regular_start, output_n = n)
+
+
+    @staticmethod
+    def carcassonne_city():
+        def pred_city(tile):
+            return 'carcassonne_city' in tile.tags
+        return TileSubset(pred_city)
 
 
     @staticmethod
@@ -287,17 +364,16 @@ class TileSubset:
         return TileSubset(lambda _: True, shuffle = True)
 
 
-
 def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True, shuffle_remaining = True):
     def subset_generator(predicates, remaining):
         for predicate in predicates:
-            tile_subset, remaining = predicate.partition(remaining)
+            tile_subset, remaining = predicate.partition_iter(remaining)
             yield tile_subset
 
     return subset_generator(tile_predicates, tileset_iter)
 
 
-def shuffle_tileset(tileset, river = False, first_tileset = True):
+def shuffle_tileset(tileset, first_tileset = True, river = False, city_start = False):
     all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.max_nb) for tile in tileset)
     if river:
         tile_predicates = [
@@ -309,7 +385,7 @@ def shuffle_tileset(tileset, river = False, first_tileset = True):
         ]
     else:
         tile_predicates = [
-            TileSubset.regular_start(),
+            TileSubset.regular_start(1 if not city_start else 0),
             TileSubset.shuffle_remaining()
         ]
     return list(apply_tile_predicates(tile_predicates, all_tiles))
@@ -453,20 +529,11 @@ def update_border_and_candidate_tiles(placed_tile, border, candidate_tiles):
 
     # Account for the change in the map boundary in candidate_tiles
     candidate_tiles.delete(placed_tile.pos)
-    prev_point = None
-    prev_edge = None
-    for (point, edge, _) in placed_tile.iter_complement_segment():
-        to_update = [(point, edge)]
-        if prev_point:
-            assert prev_edge is not None
-            to_update.append((prev_point + prev_edge, prev_edge))
-        prev_point = point
-        prev_edge = edge
-        for (p, e) in to_update:
-            tile_border = boundary.from_edge(p, e, Orientation.COUNTERCLOCKWISE, Domain.EXTERIOR)
-            pos = tile_border.bottom_left()
-            tile_border.rotate_to_start_with(pos)
-            candidate_tiles.update(PositionedTile(pos, border.common_segments(tile_border)))
+    neighbor_edges = [(point, edge) for (point, edge, _) in placed_tile.iter_complement_segment()]
+    neighbor_edges.extend([(point + edge, edge) for (point, edge) in neighbor_edges[:-1]])
+    tiles_to_update = [PositionedTile.from_boundary_edge(border, point, edge) for (point, edge) in neighbor_edges]
+    for pos_tile in tiles_to_update:
+        candidate_tiles.update(pos_tile)
 
     # Sort the updated list of candidates
     candidate_tiles.sort(key=PlacedTile.get_l1_distance)
@@ -511,6 +578,25 @@ def find_candidate_placements(tile, border, candidate_tiles, max_candidates = -1
     return candidate_placements
 
 
+def place_carcassonne_city(tileset, candidate_tiles, display, z, pos, r = 0):
+    assert len(tileset) > 0
+    assert isinstance(pos, Vect)
+    if len(tileset) != 12:
+        warn('Expected 12 tiles for the city of Carcassonne')
+    composite_tile = CompositeTile()
+    for tile in tileset:
+        assert 'carcassonne_city' in tile.tags
+        composite_tile.append(tile)
+    composite_tile.draw(display, pos, r)
+    display.update(z)
+    border = composite_tile.get_boundary(pos, r)
+    neighbor_tiles = [PositionedTile.from_boundary_edge(border, point, edge) for (point, edge, _) in border.iter_all()]
+    print(neighbor_tiles)
+    for pos_tile in neighbor_tiles:
+        candidate_tiles.update(pos_tile)
+    return border
+
+
 def main():
     parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
     parser.add_argument('files', metavar='FILE', nargs='*', help='Tile description file (JSON format)')
@@ -530,6 +616,8 @@ def main():
         # Load tile images, and draw missing ones
         graphics.init()
         tile_size = load_or_draw_tile_images(tileset, args.draw_all)
+        carcassonne_city_tileset, tileset = TileSubset.carcassonne_city().partition(tileset)
+        city_start_flag = len(carcassonne_city_tileset)
 
         # Non-game tiles
         riverside_tile = Tile.from_uniform_color((217, 236, 255), tile_size, 'riverside')
@@ -546,16 +634,16 @@ def main():
         print('Press ESCAPE in the graphics window to quit', flush = True)
 
         # Place random tiles. The map must grow!
-        border = Boundary()
         candidate_tiles = CandidateTiles(
             on_update = lambda pos_tile: display.set_tile(segment_length_tiles[pos_tile.get_segment_length()].img, pos_tile.pos.x, pos_tile.pos.y) if args.debug_mode else None,
             on_delete = None)
         z = args.zoom_factor
+        border = place_carcassonne_city(carcassonne_city_tileset, candidate_tiles, display, z, Vect(-2, -1)) if city_start_flag else Boundary()
         total_nb_tiles_placed = 0
         nb_tiles_placed = 0
         first_tileset = True
         while (args.max_tiles == 0 and first_tileset) or total_nb_tiles_placed < args.max_tiles:
-            tile_subsets_to_place = shuffle_tileset(tileset, river_map_flag, first_tileset)
+            tile_subsets_to_place = shuffle_tileset(tileset, first_tileset, river_map_flag, city_start_flag)
             for tiles_to_place in tile_subsets_to_place:
                 while len(tiles_to_place) > 0 and (args.max_tiles == 0 or total_nb_tiles_placed < args.max_tiles):
                     nb_tiles_placed = 0

@@ -1,0 +1,16 @@
+{
+  "tiles": [
+    { "description": "TFFF", "cardinality": 1, "img": "img/city/TFFF_city00.png", "tag1": "carcassonne_city", "tag2": "vect_0_0" },
+    { "description": "FTTF", "cardinality": 1, "img": "img/city/FTTF_city01.png", "tag1": "carcassonne_city", "tag2": "vect_0_1" },
+    { "description": "TTFP", "cardinality": 1, "img": "img/city/TTFP_city02.png", "tag1": "carcassonne_city", "tag2": "vect_0_2" },
+    { "description": "FTTF", "cardinality": 1, "img": "img/city/FTTF_city10.png", "tag1": "carcassonne_city", "tag2": "vect_1_0" },
+    { "description": "TTTT", "cardinality": 1, "img": "img/city/TTTT_city11.png", "tag1": "carcassonne_city", "tag2": "vect_1_1" },
+    { "description": "TTFT", "cardinality": 1, "img": "img/city/TTFT_city12.png", "tag1": "carcassonne_city", "tag2": "vect_1_2" },
+    { "description": "PTTT", "cardinality": 1, "img": "img/city/PTTT_city20.png", "tag1": "carcassonne_city", "tag2": "vect_2_0" },
+    { "description": "TTTT", "cardinality": 1, "img": "img/city/TTTT_city21.png", "tag1": "carcassonne_city", "tag2": "vect_2_1" },
+    { "description": "TTFT", "cardinality": 1, "img": "img/city/TTFT_city22.png", "tag1": "carcassonne_city", "tag2": "vect_2_2" },
+    { "description": "FTTT", "cardinality": 1, "img": "img/city/FTTT_city30.png", "tag1": "carcassonne_city", "tag2": "vect_3_0" },
+    { "description": "TFTT", "cardinality": 1, "img": "img/city/TFTT_city31.png", "tag1": "carcassonne_city", "tag2": "vect_3_1" },
+    { "description": "TFPT", "cardinality": 1, "img": "img/city/TFPT_city32.png", "tag1": "carcassonne_city", "tag2": "vect_3_2" }
+  ]
+}
