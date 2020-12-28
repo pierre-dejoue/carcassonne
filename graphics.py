@@ -1,6 +1,11 @@
-import pygame
+import os
 import sys
 from collections import defaultdict
+
+
+# Silent pygame import
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "True"
+import pygame
 
 
 TILE_COLORS = {
@@ -14,6 +19,11 @@ UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
 
 def init():
     pygame.init()
+    print('Init pygame {} (SDL {}.{}.{}, Python {}.{}.{})'.format(
+        pygame.version.ver,
+        *pygame.version.SDL,
+        *sys.version_info[0:3]
+    ))
 
 
 def is_init():
