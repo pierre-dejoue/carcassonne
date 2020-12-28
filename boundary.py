@@ -16,7 +16,7 @@ class Vect:
 
 
     def __repr__(self):
-        return  'Vect({}, {})'.format(self.x, self.y)
+        return 'Vect({}, {})'.format(self.x, self.y)
 
 
     def __add__(self, other):
@@ -111,7 +111,7 @@ class Boundary:
 
 
     def __len__(self):
-        assert len(self.points) ==  len(self.labels)
+        assert len(self.points) == len(self.labels)
         return len(self.points)
 
 
@@ -189,9 +189,19 @@ class Boundary:
             yield (self.get_point(idx), self.get_edge(idx), self.get_label(idx))
 
 
-    point_getter = lambda iter: map(operator.itemgetter(0), iter)
-    edge_getter = lambda iter: map(operator.itemgetter(1), iter)
-    label_getter = lambda iter: map(operator.itemgetter(2), iter)
+    @staticmethod
+    def point_getter(iter):
+        return map(operator.itemgetter(0), iter)
+
+
+    @staticmethod
+    def edge_getter(iter):
+        return map(operator.itemgetter(1), iter)
+
+
+    @staticmethod
+    def label_getter(iter):
+        return map(operator.itemgetter(2), iter)
 
 
     def orientation(self):
@@ -225,7 +235,7 @@ class Boundary:
         """
         assert self.is_unique_points()
         assert other.is_unique_points()
-        #assert self.orientation() == other.orientation()
+        # assert self.orientation() == other.orientation()
 
         # Identify common points and their respective indices. Those are considered "segments of length 0".
         self_points = dict((p, i) for (i, p) in enumerate(self.points))
@@ -263,7 +273,7 @@ class Boundary:
 
 
     def find_matching_rotations(self, other, common_segment, cmp = CompareLabels.treat_none_as_regular_label):
-        #assert self.orientation() == other.orientation()
+        # assert self.orientation() == other.orientation()
         (i, j, L) = common_segment
         assert L > 0
         assert L < len(self)
@@ -282,7 +292,7 @@ class Boundary:
         if len(self) == 0:
             self.__replace(other)
         else:
-            #assert self.orientation() == other.orientation()
+            # assert self.orientation() == other.orientation()
             if hint_common_segment is None:
                 segments = self.common_segments(other)
                 assert len(segments) == 1
@@ -332,6 +342,6 @@ def get_tile(bottom_left, desc = [None, None, None, None]):
     assert isinstance(bottom_left, Vect)
     assert len(desc) == 4
     border = Boundary()
-    for idx, delta in enumerate([ Vect(0, 0), Vect(1, 0), Vect(1, 1), Vect(0, 1) ]):
+    for idx, delta in enumerate([Vect(0, 0), Vect(1, 0), Vect(1, 1), Vect(0, 1)]):
         border.append(bottom_left + delta, desc[idx])
     return border

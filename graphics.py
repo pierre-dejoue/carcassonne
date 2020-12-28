@@ -1,4 +1,3 @@
-import os.path
 import pygame
 import sys
 from collections import defaultdict
@@ -59,11 +58,11 @@ def load_image(img_path):
 def path_polygon(x0, y0, x1, y1, xc, yc, width_percent):
     alpha = width_percent / 200
     return [
-        ((0.5 + alpha) * x0  + (0.5 - alpha) * x1, (0.5 + alpha) * y0 + (0.5 - alpha) * y1),
+        ((0.5 + alpha) * x0 + (0.5 - alpha) * x1, (0.5 + alpha) * y0 + (0.5 - alpha) * y1),
         (xc + 2 * alpha * (x0 - xc), yc + 2 * alpha * (y0 - yc)),
         (xc, yc),
         (xc + 2 * alpha * (x1 - xc), yc + 2 * alpha * (y1 - yc)),
-        ((0.5 - alpha) * x0  + (0.5 + alpha) * x1, (0.5 - alpha) * y0 + (0.5 + alpha) * y1)
+        ((0.5 - alpha) * x0 + (0.5 + alpha) * x1, (0.5 - alpha) * y0 + (0.5 + alpha) * y1)
     ]
 
 
@@ -162,8 +161,8 @@ class GridDisplay:
 
     def reset_tile(self, i, j):
         self.dbg_counters['calls_to_reset_tile'] += 1
-        self.dbg_info['last_reset_tile'] = repr((i, j, r))
-        del tiles[(i, j)]
+        self.dbg_info['last_reset_tile'] = repr((i, j, 0))
+        del self.tiles[(i, j)]
         black_tile = pygame.Surface((self.tile_size, self.tile_size))
         black_tile.fill(pygame.Color(0, 0, 0))
         self.__blit(black_tile, i, j)
@@ -197,7 +196,10 @@ class GridDisplay:
 
 
     def get_debug_info(self):
-        dbg = { 'library_name': 'pygame', 'library_version': pygame.version.ver }
+        dbg = {
+            'library_name': 'pygame',
+            'library_version': pygame.version.ver
+        }
         for k, v in self.dbg_info.items():
             dbg[k] = v
         for k, v in self.dbg_counters.items():

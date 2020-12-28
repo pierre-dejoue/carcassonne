@@ -66,7 +66,7 @@ class TestBoundary(unittest.TestCase):
 
 
     def test_common_segments_2(self):
-        tiles_bottom_left = [ Vect(0, 0), Vect(1, 0), Vect(1, 1), Vect(0, 1) ]
+        tiles_bottom_left = [Vect(0, 0), Vect(1, 0), Vect(1, 1), Vect(0, 1)]
         for single_idx in range(4):
             single_tile = boundary.get_tile(tiles_bottom_left[single_idx])
             three_other_tiles = [(bl,) for bl in tiles_bottom_left[single_idx+1:] + tiles_bottom_left[:single_idx]]
@@ -167,10 +167,10 @@ class TestFromEdge(unittest.TestCase):
         for orientation in [Orientation.CLOCKWISE, Orientation.COUNTERCLOCKWISE]:
             for domain in [Domain.INTERIOR, Domain.EXTERIOR]:
                 border = boundary.from_edge(Vect(3, 5), Vect(1, 0), orientation, domain)
-                self.assertEqual(len(border),4)
+                self.assertEqual(len(border), 4)
                 self.assertEqual(border.orientation(), orientation)
                 bottom_lefts[border.bottom_left()] += 1
-        self.assertEqual(bottom_lefts, { Vect(3, 5): 2, Vect(3, 4): 2 })
+        self.assertEqual(bottom_lefts, {Vect(3, 5): 2, Vect(3, 4): 2})
 
 
 class TestGetTile(unittest.TestCase):

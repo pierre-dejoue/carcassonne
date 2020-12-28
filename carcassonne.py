@@ -254,7 +254,7 @@ class CompositeTile:
             self.offset = offset
 
 
-    vect_re = re.compile('[Vv]ect_(\d+)_(\d+)')
+    vect_re = re.compile(r'[Vv]ect_(\d+)_(\d+)')
 
 
     def __init__(self):
@@ -281,17 +281,21 @@ class CompositeTile:
     def draw(self, display, pos, r = 0):
         assert isinstance(pos, Vect)
         assert isinstance(display, graphics.GridDisplay)
+
         def draw_elt(_, elt):
             PlacedTile(elt.tile, pos + elt.offset.rotate(r), r).draw(display)
             return None
+
         self.__reduce(draw_elt)
 
 
     def get_boundary(self, pos, r = 0):
         assert isinstance(pos, Vect)
+
         def merge_boundary(border, elt):
             border.merge(PlacedTile(elt.tile, pos + elt.offset.rotate(r), r).get_boundary())
             return border
+
         return self.__reduce(merge_boundary, Boundary())
 
 
@@ -626,7 +630,8 @@ def main():
             0: forbidden_tile,
             1: Tile.from_uniform_color((10,  60, 10), tile_size, 'one_side'),
             2: Tile.from_uniform_color((40, 120, 40), tile_size, 'two_sides'),
-            3: Tile.from_uniform_color((70, 180, 70), tile_size, 'three_sides') }
+            3: Tile.from_uniform_color((70, 180, 70), tile_size, 'three_sides')
+        }
 
         # Open display
         (w, h) = (0, 0) if args.full_screen else (1280, 720)
@@ -663,8 +668,8 @@ def main():
                             update_border_and_candidate_tiles(placed_tile, border, candidate_tiles)
                             placed_tile.draw(display)
                             nb_tiles_placed += 1
-                            #z = 0.995 * z
-                            #display.update(z, 100)
+                            # z = 0.995 * z
+                            # display.update(z, 100)
                         else:
                             warn('Could not place tile {}'.format(tile.desc))
                             tiles_not_placed.append(tile)
