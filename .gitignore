@@ -1,5 +1,6 @@
 __pycache__/
-resources/img_lowres/
-resources/img_highres/
 misc/
+resources/img_highres/
+resources/img_lowres/
+dump.bmp
 screenshot.jpg

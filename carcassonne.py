@@ -23,6 +23,7 @@ from collections import deque
 DEBUG_PRINTOUT = False
 DEFAULT_TILE_SIZE = 100
 SCREENSHOT_PATH = './screenshot.jpg'
+DUMP_PATH = './dump.bmp'
 
 
 def warn(msg):
@@ -610,6 +611,7 @@ def main():
     parser.add_argument('--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
     parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
     parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
+    parser.add_argument('--dump', dest='dump_to_img', action='store_true', help='Dump the final grid to an image')
     args = parser.parse_args()
 
     # Load tileset (JSON files)
@@ -684,6 +686,8 @@ def main():
             first_tileset = False
 
         # Wait until the user quits
+        print('total_nb_tiles_placed: {}'.format(total_nb_tiles_placed))
+        sys.stdout.flush()
         while True:
             display.check_event_queue(200)
 
@@ -696,6 +700,9 @@ def main():
         if (args.take_screenshot or args.debug_mode) and 'display' in locals():
             display.take_screenshot(SCREENSHOT_PATH)
             print('Screenshot saved in {}'.format(SCREENSHOT_PATH))
+        if args.dump_to_img and 'display' in locals():
+            display.dump_to_img(DUMP_PATH, args.zoom_factor)
+            print('Dump grid to {}'.format(DUMP_PATH))
         graphics.quit()
 
     return 0

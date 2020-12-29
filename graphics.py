@@ -139,6 +139,8 @@ class GridDisplay:
         self.tile_size = tile_size
         self.current_zoom = 0.0
         self.tiles = {}
+        self.bottomleft = (0, 0)
+        self.topright = (0, 0)
         self.center = self.screen.get_rect().center
         self.dbg_counters = defaultdict(int)
         self.dbg_info = {}
@@ -154,7 +156,7 @@ class GridDisplay:
         self.dbg_counters['calls_to___blit'] += 1
         target_size = round(self.tile_size * self.current_zoom)
         scaled_img = pygame.transform.smoothscale(rotated_img, (target_size, target_size))
-        pos = scaled_img.get_rect().move(self.center).move((i - 0.5) * target_size, (-0.5 - j) * target_size)
+        pos = scaled_img.get_rect().move(self.center).move((-0.5 + i) * target_size, (-0.5 - j) * target_size).topleft
         self.screen.blit(scaled_img, pos)
 
 
@@ -167,6 +169,14 @@ class GridDisplay:
         rotated_img = pygame.transform.rotate(image.converted_img(), r * 90)
         self.tiles[(i, j)] = rotated_img
         self.__blit(rotated_img, i, j)
+        if i < self.bottomleft[0]:
+            self.bottomleft = (i, self.bottomleft[1])
+        elif i > self.topright[0]:
+            self.topright = (i, self.topright[1])
+        if j < self.bottomleft[1]:
+            self.bottomleft = (self.bottomleft[0], j)
+        elif j > self.topright[1]:
+            self.topright = (self.topright[0], j)
 
 
     def reset_tile(self, i, j):
@@ -201,7 +211,6 @@ class GridDisplay:
             for coord, img in self.tiles.items():
                 self.__blit(img, coord[0], coord[1])
         pygame.display.flip()
-        sys.stdout.flush()
         self.check_event_queue(wait_ms)
 
 
@@ -216,5 +225,21 @@ class GridDisplay:
             dbg[k] = v
         return sorted(dbg.items())
 
+
     def take_screenshot(self, img_path = 'screenshot.jpg'):
+        """Screenshot of the display"""
         pygame.image.save(self.screen, img_path)
+
+
+    def dump_to_img(self, img_path = 'dump.bmp', scale = 1.0):
+        """Dump the grid to an image"""
+        width = 1 + self.topright[0] - self.bottomleft[0]
+        height = 1 + self.topright[1] - self.bottomleft[1]
+        target_tile_size = round(scale * self.tile_size)
+        dump_surf = pygame.Surface((width * target_tile_size, height * target_tile_size))
+        dump_surf.fill(pygame.Color(0, 0, 0))
+        for coord, img in self.tiles.items():
+            topleft = (target_tile_size * (coord[0] - self.bottomleft[0]), target_tile_size * (self.topright[1] - coord[1]))
+            scaled_img = pygame.transform.smoothscale(img, (target_tile_size, target_tile_size))
+            dump_surf.blit(scaled_img, topleft)
+        pygame.image.save(dump_surf, img_path)
