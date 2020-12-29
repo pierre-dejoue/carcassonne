@@ -18,12 +18,23 @@ from boundary import Domain
 from boundary import Orientation
 from boundary import Vect
 from collections import deque
+from enum import Enum, auto
 
 
 DEBUG_PRINTOUT = False
 DEFAULT_TILE_SIZE = 100
 SCREENSHOT_PATH = './screenshot.jpg'
 DUMP_PATH = './dump.bmp'
+
+
+class RiverPlacement(Enum):
+    SINGLE_TILESET = auto()
+    SINGLE_TILESET_NO_TEE = auto()
+    REUSE_TILESET = auto()
+    REUSE_TILESET_NO_TEE = auto()
+
+
+DEFAULT_RIVER_PLACEMENT = RiverPlacement.SINGLE_TILESET
 
 
 def warn(msg):
@@ -351,6 +362,13 @@ class TileSubset:
 
 
     @staticmethod
+    def river_exclude():
+        def pred_river_exclude(tile):
+            return 'river' in tile.tags
+        return TileSubset(pred_river_exclude, output_n = 0)
+
+
+    @staticmethod
     def river_not_source_nor_sink():
         def pred_river_others(tile):
             return 'river' in tile.tags and 'source' not in tile.tags and 'lake' not in tile.tags
@@ -366,7 +384,7 @@ class TileSubset:
 
     @staticmethod
     def shuffle_remaining():
-        return TileSubset(lambda _: True, shuffle = True)
+        return TileSubset(lambda _: True)
 
 
 def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True, shuffle_remaining = True):
@@ -378,16 +396,35 @@ def apply_tile_predicates(tile_predicates, tileset_iter, append_remaining = True
     return subset_generator(tile_predicates, tileset_iter)
 
 
-def shuffle_tileset(tileset, first_tileset = True, river = False, city_start = False):
+def shuffle_tileset(tileset, first_tileset = True, river = False, river_placement = DEFAULT_RIVER_PLACEMENT, city_start = False):
     all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.max_nb) for tile in tileset)
     if river:
-        tile_predicates = [
-            TileSubset.river_source(1 if first_tileset else 0),
-            TileSubset.river_exclude_t_shaped(),
-            TileSubset.river_not_source_nor_sink(),
-            TileSubset.river_sink(0),
-            TileSubset.shuffle_remaining()
-        ]
+        river_single = river_placement == RiverPlacement.SINGLE_TILESET or river_placement == RiverPlacement.SINGLE_TILESET_NO_TEE
+        river_exclude_t_shaped = river_placement == RiverPlacement.SINGLE_TILESET_NO_TEE or river_placement == RiverPlacement.REUSE_TILESET_NO_TEE
+        if river_single and not first_tileset:
+            tile_predicates = [
+                TileSubset.river_exclude(),
+                TileSubset.shuffle_remaining()
+            ]
+        else:
+            if not river_single:
+                nb_of_sinks = 0
+            elif river_exclude_t_shaped:
+                nb_of_sinks = 1
+            else:
+                nb_of_sinks = 2
+            tile_predicates = [
+                TileSubset.river_source(1 if first_tileset else 0)
+            ]
+            if river_exclude_t_shaped:
+                tile_predicates += [
+                    TileSubset.river_exclude_t_shaped()
+                ]
+            tile_predicates += [
+                TileSubset.river_not_source_nor_sink(),
+                TileSubset.river_sink(nb_of_sinks),
+                TileSubset.shuffle_remaining()
+            ]
     elif first_tileset and not city_start:
         tile_predicates = [
             TileSubset.regular_start(),
@@ -615,11 +652,15 @@ def main():
     parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
     parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
     parser.add_argument('--dump', dest='dump_to_img', action='store_true', help='Dump the final grid to an image')
+    parser.add_argument('--river-policy', type=str, dest='river_policy', choices=[policy.name for policy in RiverPlacement], default=DEFAULT_RIVER_PLACEMENT.name, help='Set the placement policy of the river tileset')
     args = parser.parse_args()
 
     # Load tileset (JSON files)
     tileset = list(itertools.chain.from_iterable(parse_tileset_description_file(json_file) for json_file in args.files))
     river_map_flag = any('river' in tile.tags for tile in tileset)
+    river_placement = RiverPlacement[args.river_policy]
+    if args.debug_mode and river_map_flag:
+        print('river_placement: ' + river_placement.name)
 
     try:
         # Load tile images, and draw missing ones
@@ -653,7 +694,7 @@ def main():
         nb_tiles_placed = 0
         first_tileset = True
         while (args.max_tiles == 0 and first_tileset) or total_nb_tiles_placed < args.max_tiles:
-            tile_subsets_to_place = shuffle_tileset(tileset, first_tileset, river_map_flag, city_start_flag)
+            tile_subsets_to_place = shuffle_tileset(tileset, first_tileset, river_map_flag, river_placement, city_start_flag)
             for tiles_to_place in tile_subsets_to_place:
                 while len(tiles_to_place) > 0 and (args.max_tiles == 0 or total_nb_tiles_placed < args.max_tiles):
                     nb_tiles_placed = 0
