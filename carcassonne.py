@@ -323,10 +323,10 @@ class TileSubset:
 
 
     @staticmethod
-    def regular_start(n = 1):
+    def regular_start():
         def pred_regular_start(tile):
             return 'start' in tile.tags and 'river' not in tile.tags
-        return TileSubset(pred_regular_start, output_n = n)
+        return TileSubset(pred_regular_start, output_n = 1)
 
 
     @staticmethod
@@ -388,9 +388,13 @@ def shuffle_tileset(tileset, first_tileset = True, river = False, city_start = F
             TileSubset.river_sink(0),
             TileSubset.shuffle_remaining()
         ]
+    elif first_tileset and not city_start:
+        tile_predicates = [
+            TileSubset.regular_start(),
+            TileSubset.shuffle_remaining()
+        ]
     else:
         tile_predicates = [
-            TileSubset.regular_start(1 if not city_start else 0),
             TileSubset.shuffle_remaining()
         ]
     return list(apply_tile_predicates(tile_predicates, all_tiles))
@@ -596,7 +600,6 @@ def place_carcassonne_city(tileset, candidate_tiles, display, z, pos, r = 0):
     display.update(z)
     border = composite_tile.get_boundary(pos, r)
     neighbor_tiles = [PositionedTile.from_boundary_edge(border, point, edge) for (point, edge, _) in border.iter_all()]
-    print(neighbor_tiles)
     for pos_tile in neighbor_tiles:
         candidate_tiles.update(pos_tile)
     return border
@@ -678,7 +681,7 @@ def main():
                     if nb_tiles_placed == 0:
                         break
                     total_nb_tiles_placed += nb_tiles_placed
-                    if DEBUG_PRINTOUT:
+                    if DEBUG_PRINTOUT or args.debug_mode:
                         print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, nb_tiles_placed))
                     display.update(z)
                     tiles_to_place = tiles_not_placed
