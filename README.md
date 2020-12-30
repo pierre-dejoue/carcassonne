@@ -1,7 +1,7 @@
 Carcassonne Map Generator
 =========================
 
-![Python3](http://img.shields.io/badge/python-3-blue.svg?v=1)
+![Python3](http://img.shields.io/badge/python-3.9-blue.svg?v=1)
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat-square)](./LICENSE)
 
 ## Usage
