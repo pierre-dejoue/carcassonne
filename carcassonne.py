@@ -32,6 +32,8 @@ class RiverPlacement(Enum):
     SINGLE_TILESET_NO_TEE = auto()
     REUSE_TILESET = auto()
     REUSE_TILESET_NO_TEE = auto()
+    REUSE_TILESET_LONG_RIVER = auto()
+    REUSE_TILESET_LONG_RIVER_NO_TEE = auto()
 
 
 DEFAULT_RIVER_PLACEMENT = RiverPlacement.SINGLE_TILESET
@@ -400,21 +402,29 @@ def shuffle_tileset(tileset, first_tileset = True, river = False, river_placemen
     all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.max_nb) for tile in tileset)
     if river:
         river_single = river_placement == RiverPlacement.SINGLE_TILESET or river_placement == RiverPlacement.SINGLE_TILESET_NO_TEE
-        river_exclude_t_shaped = river_placement == RiverPlacement.SINGLE_TILESET_NO_TEE or river_placement == RiverPlacement.REUSE_TILESET_NO_TEE
+        river_long = river_placement == RiverPlacement.REUSE_TILESET_LONG_RIVER or river_placement == RiverPlacement.REUSE_TILESET_LONG_RIVER_NO_TEE
+        river_exclude_t_shaped = river_placement == RiverPlacement.SINGLE_TILESET_NO_TEE or river_placement == RiverPlacement.REUSE_TILESET_NO_TEE or river_placement == RiverPlacement.REUSE_TILESET_LONG_RIVER_NO_TEE
         if river_single and not first_tileset:
             tile_predicates = [
                 TileSubset.river_exclude(),
                 TileSubset.shuffle_remaining()
             ]
         else:
-            if not river_single:
-                nb_of_sinks = 0
-            elif river_exclude_t_shaped:
+            # River sources
+            if river_long and not first_tileset:
+                nb_of_sources = 0
+            else:
+                nb_of_sources = 1
+            # River sinks
+            if river_exclude_t_shaped:
                 nb_of_sinks = 1
             else:
                 nb_of_sinks = 2
+            if river_long:
+                nb_of_sinks = nb_of_sinks - 1
+            # Predicates
             tile_predicates = [
-                TileSubset.river_source(1 if first_tileset else 0)
+                TileSubset.river_source(nb_of_sources)
             ]
             if river_exclude_t_shaped:
                 tile_predicates += [
