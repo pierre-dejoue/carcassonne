@@ -11,6 +11,7 @@ import operator
 import os.path
 import random
 import re
+import secrets
 import sys
 import traceback
 from boundary import Boundary
@@ -663,7 +664,15 @@ def main():
     parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
     parser.add_argument('--dump', dest='dump_to_img', action='store_true', help='Dump the final grid to an image')
     parser.add_argument('--river-policy', type=str, dest='river_policy', choices=[policy.name for policy in RiverPlacement], default=DEFAULT_RIVER_PLACEMENT.name, help='Set the placement policy of the river tileset')
+    parser.add_argument('--seed', metavar='INT', type=int, dest='seed', default = 0, help='A seed for the random generator (default: Use a system generated seed)')
     args = parser.parse_args()
+
+    # Set random seed
+    rng_seed = args.seed
+    if rng_seed == 0:
+        rng_seed = secrets.randbits(64)
+    print('Random seed: {}'.format(rng_seed))
+    random.seed(rng_seed)
 
     # Load tileset (JSON files)
     tileset = list(itertools.chain.from_iterable(parse_tileset_description_file(json_file) for json_file in args.files))
