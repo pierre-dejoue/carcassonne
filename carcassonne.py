@@ -29,15 +29,14 @@ DUMP_PATH = './dump.bmp'
 
 
 class RiverPlacement(Enum):
-    SINGLE_TILESET = auto()
-    SINGLE_TILESET_NO_TEE = auto()
-    REUSE_TILESET = auto()
-    REUSE_TILESET_NO_TEE = auto()
-    REUSE_TILESET_LONG_RIVER = auto()
-    REUSE_TILESET_LONG_RIVER_NO_TEE = auto()
+    USE_T = auto()
+    EXCLUDE_T = auto()
+    SHORT_RIVER = auto()
+    LONG_RIVER = auto()
 
 
-DEFAULT_RIVER_PLACEMENT = RiverPlacement.SINGLE_TILESET
+RIVER_PLACEMENT_DEFAULT_T_POLICY = RiverPlacement.USE_T
+RIVER_PLACEMENT_DEFAULT_LENGTH_POLICY = RiverPlacement.SHORT_RIVER
 
 
 def warn(msg):
@@ -373,13 +372,6 @@ class TileSubset:
 
 
     @staticmethod
-    def river_exclude():
-        def pred_river_exclude(tile):
-            return 'river' in tile.tags
-        return TileSubset(pred_river_exclude, output_n = 0)
-
-
-    @staticmethod
     def river_not_source_nor_sink():
         def pred_river_others(tile):
             return 'river' in tile.tags and 'source' not in tile.tags and 'lake' not in tile.tags
@@ -436,43 +428,37 @@ def iterate_tilesets(river_tileset, regular_tileset, river_tileset_period = 0, i
         first = False
 
 
-def shuffle_tileset(tileset, first_tileset, river_placement_policy = DEFAULT_RIVER_PLACEMENT):
+def shuffle_tileset(tileset, first_tileset_flag, river_placement_policies = []):
     river_flag = any('river' in tile.tags for tile in tileset)
     all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.max_nb) for tile in tileset)
     if river_flag:
-        river_single = river_placement_policy == RiverPlacement.SINGLE_TILESET or river_placement_policy == RiverPlacement.SINGLE_TILESET_NO_TEE
-        river_long = river_placement_policy == RiverPlacement.REUSE_TILESET_LONG_RIVER or river_placement_policy == RiverPlacement.REUSE_TILESET_LONG_RIVER_NO_TEE
-        river_exclude_t_shaped = river_placement_policy == RiverPlacement.SINGLE_TILESET_NO_TEE or river_placement_policy == RiverPlacement.REUSE_TILESET_NO_TEE or river_placement_policy == RiverPlacement.REUSE_TILESET_LONG_RIVER_NO_TEE
-        if river_single and not first_tileset:
-            tile_predicates = [
-                TileSubset.river_exclude()
-            ]
+        river_long = RiverPlacement.LONG_RIVER in river_placement_policies
+        river_exclude_t_shaped = RiverPlacement.EXCLUDE_T in river_placement_policies
+        # River sources
+        if river_long and not first_tileset_flag:
+            nb_of_sources = 0
         else:
-            # River sources
-            if river_long and not first_tileset:
-                nb_of_sources = 0
-            else:
-                nb_of_sources = 1
-            # River sinks
-            if river_exclude_t_shaped:
-                nb_of_sinks = 1
-            else:
-                nb_of_sinks = 2
-            if river_long:
-                nb_of_sinks = nb_of_sinks - 1
-            # Predicates
-            tile_predicates = [
-                TileSubset.river_source(nb_of_sources)
-            ]
-            if river_exclude_t_shaped:
-                tile_predicates += [
-                    TileSubset.river_exclude_t_shaped()
-                ]
+            nb_of_sources = 1
+        # River sinks
+        if river_exclude_t_shaped:
+            nb_of_sinks = 1
+        else:
+            nb_of_sinks = 2
+        if river_long:
+            nb_of_sinks = nb_of_sinks - 1
+        # Predicates
+        tile_predicates = [
+            TileSubset.river_source(nb_of_sources)
+        ]
+        if river_exclude_t_shaped:
             tile_predicates += [
-                TileSubset.river_not_source_nor_sink(),
-                TileSubset.river_sink(nb_of_sinks),
+                TileSubset.river_exclude_t_shaped()
             ]
-    elif first_tileset:
+        tile_predicates += [
+            TileSubset.river_not_source_nor_sink(),
+            TileSubset.river_sink(nb_of_sinks),
+        ]
+    elif first_tileset_flag:
         tile_predicates = [
             TileSubset.regular_start(),
             TileSubset.shuffle_remaining()
@@ -689,6 +675,26 @@ def place_carcassonne_city(tileset, candidate_tiles, display, z, pos, r = 0):
     return border
 
 
+def parse_river_placement_policies(policies):
+    result = []
+    # Policy: T-shaped tile
+    if RiverPlacement.USE_T in policies:
+        result.append(RiverPlacement.USE_T)
+    elif RiverPlacement.EXCLUDE_T in policies:
+        result.append(RiverPlacement.EXCLUDE_T)
+    else:
+        result.append(RIVER_PLACEMENT_DEFAULT_T_POLICY)
+    # Policy: River length
+    if RiverPlacement.SHORT_RIVER in policies:
+        result.append(RiverPlacement.SHORT_RIVER)
+    elif RiverPlacement.LONG_RIVER in policies:
+        result.append(RiverPlacement.LONG_RIVER)
+    else:
+        result.append(RIVER_PLACEMENT_DEFAULT_LENGTH_POLICY)
+    assert len(result) == 2
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
     parser.add_argument('files', metavar='FILE', nargs='*', help='Tile description file (JSON format)')
@@ -699,8 +705,8 @@ def main():
     parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
     parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
     parser.add_argument('--dump', dest='dump_to_img', action='store_true', help='Dump the final grid to an image')
-    parser.add_argument('--river-policy', metavar='POL', type=str, dest='river_policy', choices=[policy.name for policy in RiverPlacement], default=DEFAULT_RIVER_PLACEMENT.name, help='Set the placement policy of the river tileset')
-    parser.add_argument('--river-period', metavar='PER', type=int, dest='river_period', default=1, help='Period of repetition of the river tileset. Set to zero for a single use of the river tileset')
+    parser.add_argument('--river-policy', type=str, dest='river_policy', choices=[policy.name for policy in RiverPlacement], action='append', default=[], help='Placement policies for the river tileset. Can be used multiple times')
+    parser.add_argument('--river-period', metavar='P', type=int, dest='river_period', default=1, help='Period of repetition of the river tileset. Set to zero for a single use of the river tileset')
     parser.add_argument('--seed', metavar='INT', type=int, dest='seed', default = 0, help='A seed for the random generator (Default: Use a system generated seed)')
     args = parser.parse_args()
 
@@ -717,9 +723,9 @@ def main():
         error('No tiles loaded')
 
     # River tiles placement policy and period
-    river_placement_policy = RiverPlacement[args.river_policy]
+    river_placement_policies = parse_river_placement_policies([RiverPlacement[policy] for policy in args.river_policy])
     if args.debug_mode and any('river' in tile.tags for tile in tileset):
-        print('river_placement_policy: ' + river_placement_policy.name)
+        print('river_placement_policies: {}'.format([policy.name for policy in river_placement_policies]))
     river_tileset_period = args.river_period if args.river_period >= 0 else 0
 
     try:
@@ -754,10 +760,10 @@ def main():
         border = place_carcassonne_city(carcassonne_city_tileset, candidate_tiles, display, z, Vect(-2, -1)) if city_start_flag else Boundary()
         total_nb_tiles_placed = 0
         total_nb_tiles_not_placed = 0
-        first_tileset = not city_start_flag
+        first_tileset_flag = not city_start_flag
         all_done_flag = False
         for tileset in iterate_tilesets(river_tileset, regular_tileset, river_tileset_period, infinite = (args.max_tiles > 0)):
-            for tiles_to_place in shuffle_tileset(tileset, first_tileset, river_placement_policy):
+            for tiles_to_place in shuffle_tileset(tileset, first_tileset_flag, river_placement_policies):
                 local_nb_tiles_placed = 0
                 while len(tiles_to_place) > 0:
                     tiles_not_placed = []
@@ -803,7 +809,7 @@ def main():
             # Done with the current tileset
             if all_done_flag:
                 break
-            first_tileset = False
+            first_tileset_flag = False
             display.update(z)
 
         # Completely done!
