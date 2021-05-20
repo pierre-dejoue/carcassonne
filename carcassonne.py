@@ -724,9 +724,10 @@ def main():
 
     # River tiles placement policy and period
     river_placement_policies = parse_river_placement_policies([RiverPlacement[policy] for policy in args.river_policy])
+    river_tileset_period = args.river_period if args.river_period >= 0 else 0
     if args.debug_mode and any('river' in tile.tags for tile in tileset):
         print('river_placement_policies: {}'.format([policy.name for policy in river_placement_policies]))
-    river_tileset_period = args.river_period if args.river_period >= 0 else 0
+        print('river_tileset_period: {}'.format(river_tileset_period))
 
     try:
         # Load tile images, and draw missing ones
