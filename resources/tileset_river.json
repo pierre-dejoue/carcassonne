@@ -21,6 +21,6 @@
     { "description": "RFFR", "cardinality": 1, "img": "img/river/RFFR_01.png", "tag1": "river" },
     { "description": "FRFR", "cardinality": 1, "img": "img/river/FRFR_01.png", "tag1": "river", "tag2": "monastery" },
     { "description": "RFTF", "cardinality": 1, "img": "img/river/RFTF_lake_01.png", "tag1": "river", "tag2": "lake" },
-    { "description": "FFRF", "cardinality": 1, "img": "img/river/FFRF_lake_02.png", "tag1": "river", "tag2": "lake" }
+    { "description": "FFRF", "cardinality": 1, "img": "img/river/FFRF_lake_02.png", "tag1": "river", "tag2": "lake", "tag3": "volcano" }
   ]
 }

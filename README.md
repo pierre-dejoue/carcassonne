@@ -24,11 +24,15 @@ A more elaborate example with the river tileset used a single time, excluding th
 * __Python 3.x__: http://www.python.org/download/
 * __pygame__: https://www.pygame.org/
 
-`pip install -r requirements.txt`
+```
+pip install -r requirements.txt
+```
 
 ## Unit Tests
 
-`python -m unittest -v`
+```
+python -m unittest -v
+```
 
 ## Screenshot
 
