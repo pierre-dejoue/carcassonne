@@ -1,0 +1,33 @@
+{
+  "tiles": [
+    { "description": "FFFF", "cardinality": 1, "img": "img/princess_dragon/FFFF_01.png", "tag1": "volcano" },
+    { "description": "FFTF", "cardinality": 1, "img": "img/princess_dragon/FFTF_01.png", "tag1": "dragon" },
+    { "description": "FFTF", "cardinality": 1, "img": "img/princess_dragon/FFTF_02.png", "tag1": "volcano" },
+    { "description": "FFTT", "cardinality": 1, "img": "img/princess_dragon/FFTT_01.png", "tag1": "princess" },
+    { "description": "FFTT", "cardinality": 1, "img": "img/princess_dragon/FFTT_02.png", "tag1": "volcano" },
+    { "description": "FFTT", "cardinality": 1, "img": "img/princess_dragon/FFTT_03.png", "tag1": "princess" },
+    { "description": "FFTT", "cardinality": 1, "img": "img/princess_dragon/FFTT_04.png", "tag1": "dragon" },
+    { "description": "FTFT", "cardinality": 1, "img": "img/princess_dragon/FTFT_01.png", "tag1": "dragon" },
+    { "description": "FTTT", "cardinality": 1, "img": "img/princess_dragon/FTTT_01.png", "tag1": "princess" },
+    { "description": "FTTT", "cardinality": 1, "img": "img/princess_dragon/FTTT_02.png", "tag1": "dragon" },
+    { "description": "FTTT", "cardinality": 1, "img": "img/princess_dragon/FTTT_03.png", "tag1": "portal" },
+    { "description": "PFFF", "cardinality": 1, "img": "img/princess_dragon/PFFF_01.png", "tag1": "volcano" },
+    { "description": "PFFP", "cardinality": 1, "img": "img/princess_dragon/PFFP_01.png", "tag1": "volcano" },
+    { "description": "PFFP", "cardinality": 2, "img": "img/princess_dragon/PFFP_02.png", "tag1": "dragon" },
+    { "description": "PFPF", "cardinality": 1, "img": "img/princess_dragon/PFPF_01.png", "tag1": "dragon" },
+    { "description": "PFPF", "cardinality": 1, "img": "img/princess_dragon/PFPF_02.png", "tag1": "volcano" },
+    { "description": "PFTP", "cardinality": 1, "img": "img/princess_dragon/PFTP_01.png", "tag1": "dragon" },
+    { "description": "PFTP", "cardinality": 1, "img": "img/princess_dragon/PFTP_02.png", "tag1": "portal" },
+    { "description": "PPFP", "cardinality": 1, "img": "img/princess_dragon/PPFP_01.png", "tag1": "dragon" },
+    { "description": "PPFP", "cardinality": 1, "img": "img/princess_dragon/PPFP_02.png", "tag1": "portal" },
+    { "description": "PPFP", "cardinality": 1, "img": "img/princess_dragon/PPFP_03.png", "tag1": "dragon", "tag2": "monastery" },
+    { "description": "PPPP", "cardinality": 1, "img": "img/princess_dragon/PPPP_01.png", "tag1": "portal" },
+    { "description": "PPTF", "cardinality": 1, "img": "img/princess_dragon/PPTF_01.png", "tag1": "portal" },
+    { "description": "PPTF", "cardinality": 1, "img": "img/princess_dragon/PPTF_02.png", "tag1": "dragon" },
+    { "description": "PPTP", "cardinality": 1, "img": "img/princess_dragon/PPTP_01.png", "tag1": "princess" },
+    { "description": "PPTT", "cardinality": 1, "img": "img/princess_dragon/PPTT_01.png", "tag1": "portal" },
+    { "description": "PPTT", "cardinality": 1, "img": "img/princess_dragon/PPTT_02.png", "tag1": "princess" },
+    { "description": "PTPT", "cardinality": 1, "img": "img/princess_dragon/PTPT_01.png", "tag1": "dragon" },
+    { "description": "TTTF", "cardinality": 1, "img": "img/princess_dragon/TTTF_01.png", "tag1": "princess" }
+  ]
+}
