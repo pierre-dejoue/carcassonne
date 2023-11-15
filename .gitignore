@@ -1,3 +1,5 @@
+.venv/
+.vscode/
 __pycache__/
 misc/
 resources/img_highres/

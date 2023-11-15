@@ -9,14 +9,15 @@ A tool that generates a randomized Carcassonne map!
 ## Usage
 
 Most simple example:
+
 ```
-./carcassonne.py resources/tileset_base.json
+python carcassonne.py resources/tileset_base.json
 ```
 
 A more elaborate example with the river tileset used a single time, excluding the T river tile, and with a total of 800 tiles (the base tileset is reused:)
+
 ```
-./carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.5
-                 resources/tileset_base.json resources/tileset_river.json
+python carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.5 resources/tileset_base.json resources/tileset_river.json
 ```
 
 ## Requirements
@@ -24,8 +25,12 @@ A more elaborate example with the river tileset used a single time, excluding th
 * __Python 3.x__: http://www.python.org/download/
 * __pygame__: https://www.pygame.org/
 
+Create a venv with the required packages:
+
 ```
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -r requirements.txt
 ```
 
 ## Unit Tests
