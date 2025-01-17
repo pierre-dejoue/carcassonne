@@ -1,6 +1,9 @@
 .venv/
-.vscode/
+venv/
 __pycache__/
+*.py[cod]
+*$py.class
+.vscode/
 misc/
 resources/img_highres/
 resources/img_lowres/
