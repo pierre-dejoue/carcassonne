@@ -19,7 +19,7 @@ TILE_COLORS = {
 UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
 
 
-def init():
+def init() -> None:
     pygame.init()
     logger.debug('Init pygame %s (SDL %d.%d.%d, Python %d.%d.%d)',
         pygame.version.ver,
@@ -28,15 +28,17 @@ def init():
     )
 
 
-def is_init():
+def is_init() -> bool:
     return pygame.get_init()
 
 
-def quit():
+def quit_window() -> None:
     pygame.quit()
 
 
 class Image:
+    """A generic image"""
+
     def __init__(self, img):
         assert img is not None
         self.img = img
@@ -61,10 +63,9 @@ class Image:
 def load_image(img_path):
     """Load an image file. This function might throw."""
     assert is_init()
-    if img_path:
-        return Image(pygame.image.load(img_path))
-    else:
+    if not img_path:
         return None
+    return Image(pygame.image.load(img_path))
 
 
 def path_polygon(x0, y0, x1, y1, xc, yc, width_percent):
@@ -130,6 +131,8 @@ def format_32bit_flag(i):
 
 
 class GridDisplay:
+    """A pygame display used to show a grid-type object"""
+
     def __init__(self, w, h, tile_size):
         if not is_init():
             raise RuntimeError('Call graphics.init() prior to instantiating the grid display')
@@ -195,10 +198,8 @@ class GridDisplay:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 raise MustQuit()
-            elif event.type == pygame.KEYUP and event.key == pygame.K_ESCAPE:
+            if event.type == pygame.KEYUP and event.key == pygame.K_ESCAPE:
                 raise MustQuit()
-            else:
-                pass
         if wait_ms > 0:
             pygame.time.wait(wait_ms)
 

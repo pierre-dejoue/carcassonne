@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+This script displays a randomized Carcassonne map
+"""
 import argparse
 import functools
 import itertools
@@ -13,12 +16,14 @@ import sys
 import traceback
 from collections import deque
 from enum import Enum, auto
+from typing import Any, List
 
 import boundary
 import graphics
 from boundary import Boundary, Domain, Orientation, Vect
 
 logger = logging.getLogger(__name__)
+
 
 EXTRA_DEBUG_PRINTOUT = False
 DEFAUT_DISPLAY_W = 1280
@@ -29,6 +34,7 @@ DUMP_PATH = './dump.bmp'
 
 
 class RiverPlacement(Enum):
+    """Flags to control the placement of the river tiles"""
     USE_T = auto()
     EXCLUDE_T = auto()
     SHORT_RIVER = auto()
@@ -47,18 +53,22 @@ def override(f):
 def handle_assertion_error():
     _, _, tb = sys.exc_info()
     tb_info = traceback.extract_tb(tb)
-    filename, line, func, text = tb_info[-1]
+    filename, line, _, text = tb_info[-1]
     logger.error('An error occurred in file %s line %d in statement "%s"', filename, line, text)
 
 
 class Tile:
-    """A tile (usually a game tile) defined by the description of its four sides (desc), its cardinality (max_nb) and optionally a graphical representation (img)"""
-    def __init__(self, desc = [None, None, None, None], max_nb = 1, img_path = '', tags = []):
-        self.desc = desc
+    """
+    A tile (usually a game tile) defined by the description of its four sides (desc),
+    its cardinality (max_nb) and optionally a graphical representation (img)
+    """
+
+    def __init__(self, desc = None, max_nb = 1, img_path = '', tags = None):
+        self.desc = desc if desc is not None else [None, None, None, None]
         self.max_nb = max_nb
         self.img_path = img_path
         self.img = None
-        self.tags = tags
+        self.tags = tags if tags is not None else []
 
 
     def __repr__(self):
@@ -103,28 +113,27 @@ class Tile:
 
 
     def get_size(self):
-        if self.img is not None:
-            assert self.img.height() == self.img.width()
-            return self.img.width()
-        else:
+        if self.img is None:
             return 0
+        assert self.img.height() == self.img.width()
+        return self.img.width()
 
 
 def parse_tileset_description_file(json_file):
     fp = None
     cumul = 0
     try:
-        fp = open(json_file, 'r')
-        tileset_json = json.load(fp)
-        assert 'tiles' in tileset_json.keys()
-        for tile_json in tileset_json['tiles']:
-            tile = Tile.from_json_description(tile_json, os.path.dirname(json_file))
-            assert tile.max_nb >= 0
-            if tile.max_nb > 0:
-                if 'start' in tile.tags:
-                    assert tile.max_nb == 1
-                cumul += tile.max_nb
-                yield tile
+        with open(json_file, 'r', encoding='ascii') as fp:
+            tileset_json = json.load(fp)
+            assert 'tiles' in tileset_json.keys()
+            for tile_json in tileset_json['tiles']:
+                tile = Tile.from_json_description(tile_json, os.path.dirname(json_file))
+                assert tile.max_nb >= 0
+                if tile.max_nb > 0:
+                    if 'start' in tile.tags:
+                        assert tile.max_nb == 1
+                    cumul += tile.max_nb
+                    yield tile
     except FileNotFoundError:
         logger.warning('Could not load file %s', json_file)
     except AssertionError:
@@ -149,8 +158,9 @@ def load_or_draw_tile_images(tileset, draw_all = False):
                 if tile_size == 0:
                     tile_size = tile.get_size()
                 elif tile.get_size() != tile_size:
-                    logger.critical('Image size of file %s (%d) does not match the previous size (%d)', tile.img_path, tile.get_size(), tile_size)
-                    exit(-1)
+                    logger.critical('Image size of file %s (%d) does not match the previous size (%d)',
+                                    tile.img_path, tile.get_size(), tile_size)
+                    sys.exit(-1)
     if tile_size == 0:
         tile_size = DEFAULT_TILE_SIZE
     for tile in tileset:
@@ -162,8 +172,10 @@ def load_or_draw_tile_images(tileset, draw_all = False):
 
 class PositionedTile:
     """Declare a position on the grid where a tile could be placed"""
-    def __init__(self, pos: Vect, segments = []):
-        assert isinstance(pos, Vect)
+
+    def __init__(self, pos: Vect, segments: List[Any] | None = None):
+        if segments is None:
+            segments = []
         self.pos = pos
         if len(segments) == 1:
             self.segment = segments[0]  # Common segment between the current map boundary and this tile
@@ -172,10 +184,7 @@ class PositionedTile:
 
 
     @classmethod
-    def from_boundary_edge(cls, border, point, edge, domain = Domain.EXTERIOR):
-        assert isinstance(border, Boundary)
-        assert isinstance(point, Vect)
-        assert isinstance(edge, Vect)
+    def from_boundary_edge(cls, border: Boundary, point: Vect, edge: Vect, domain: Domain = Domain.EXTERIOR):
         tile_border = boundary.from_edge(point, edge, Orientation.COUNTERCLOCKWISE, domain)
         pos = tile_border.bottom_left()
         tile_border.rotate_to_start_with(pos)
@@ -195,33 +204,32 @@ class PositionedTile:
 
 
     def get_segment_length(self):
-        (_, _, L) = self.get_segment()
-        return L
+        (_, _, s) = self.get_segment()
+        return s
 
 
     def iter_segment(self):
-        (_, j, L) = self.get_segment()
-        return self.get_boundary().iter_slice(j, j + L)
+        (_, j, s) = self.get_segment()
+        return self.get_boundary().iter_slice(j, j + s)
 
 
     def iter_complement_segment(self):
-        (_, j, L) = self.get_segment()
+        (_, j, s) = self.get_segment()
         tile_border = self.get_boundary()
-        if L == 0:
+        if s == 0:
             return tile_border.iter_all(j)
-        else:
-            return tile_border.iter_slice(j + L, j)
+        return tile_border.iter_slice(j + s, j)
 
 
-    def get_boundary(self, desc = [None, None, None, None]):
+    def get_boundary(self, desc = None):
         return boundary.get_tile(self.pos, desc)
 
 
 class PlacedTile(PositionedTile):
     """Declares a Tile placed on the grid, with its position and orientation (r)"""
+
     def __init__(self, tile: Tile, pos: Vect, r: int, segment = None):
-        assert isinstance(tile, Tile)
-        PositionedTile.__init__(self, pos, [] if not segment else [segment])
+        PositionedTile.__init__(self, pos, [] if segment is None else [segment])
         self.tile = tile
         self.r = r
 
@@ -250,10 +258,11 @@ class PlacedTile(PositionedTile):
 
 class CompositeTile:
     """A super-tile made of several unit tiles (e.g. the city of Carcasonne)"""
+
     class Elt:
-        def __init__(self, tile, offset):
-            assert isinstance(tile, Tile)
-            assert isinstance(offset, Vect)
+        """A unit element of a composite tile"""
+
+        def __init__(self, tile: Tile, offset: Vect):
             self.tile = tile
             self.offset = offset
 
@@ -282,21 +291,17 @@ class CompositeTile:
         return functools.reduce(fun, self.elts, initializer)
 
 
-    def draw(self, display, pos, r = 0):
-        assert isinstance(pos, Vect)
-        assert isinstance(display, graphics.GridDisplay)
+    def draw(self, display: graphics.GridDisplay, pos: Vect, r: int = 0):
 
-        def draw_elt(_, elt):
+        def draw_elt(_, elt: CompositeTile.Elt) -> None:
             PlacedTile(elt.tile, pos + elt.offset.rotate(r), r).draw(display)
-            return None
 
         self.__reduce(draw_elt)
 
 
-    def get_boundary(self, pos, r = 0):
-        assert isinstance(pos, Vect)
+    def get_boundary(self, pos: Vect, r: int = 0):
 
-        def merge_boundary(border, elt):
+        def merge_boundary(border: Boundary, elt: CompositeTile.Elt) -> Boundary:
             border.merge(PlacedTile(elt.tile, pos + elt.offset.rotate(r), r).get_boundary())
             return border
 
@@ -304,6 +309,8 @@ class CompositeTile:
 
 
 class TileSubset:
+    """Define a subset of a Tile set"""
+
     def __init__(self, predicate, shuffle = True, output_n = -1):
         self.predicate = predicate
         self.shuffle = shuffle      # Shuffle result
@@ -417,7 +424,9 @@ def iterate_tilesets(river_tileset, regular_tileset, river_tileset_period = 0, i
         first = False
 
 
-def shuffle_tileset(tileset, first_tileset_flag, river_placement_policies = []):
+def shuffle_tileset(tileset, first_tileset_flag, river_placement_policies = None):
+    if river_placement_policies is None:
+        river_placement_policies = []
     river_flag = any('river' in tile.tags for tile in tileset)
     all_tiles = itertools.chain.from_iterable(itertools.repeat(tile, tile.max_nb) for tile in tileset)
     if river_flag:
@@ -460,11 +469,13 @@ def shuffle_tileset(tileset, first_tileset_flag, river_placement_policies = []):
 
 
 class CandidateTiles:
+    """Class defining a set of candidate Tiles"""
+
     def __init__(self, on_update = None, on_delete = None):
         assert not on_update or callable(on_update)
         assert not on_delete or callable(on_delete)
         self.sorted_positions = []          # List of positions
-        self.tiles = dict()                 # Dict of position -> PositionedTile
+        self.tiles = {}                     # Dict of position -> PositionedTile
         self.nb_to_be_deleted = 0
         self.on_update = on_update
         self.on_delete = on_delete
@@ -490,8 +501,7 @@ class CandidateTiles:
                 yield self.tiles[pos]
 
 
-    def update(self, pos_tile):
-        assert isinstance(pos_tile, PositionedTile)
+    def update(self, pos_tile: PositionedTile):
         if self.on_update:
             self.on_update(pos_tile)
         if self.to_be_deleted(pos_tile):
@@ -507,8 +517,7 @@ class CandidateTiles:
             self.tiles[pos_tile.pos] = pos_tile
 
 
-    def delete(self, pos):
-        assert isinstance(pos, Vect)
+    def delete(self, pos: Vect):
         if self.on_delete:
             self.on_delete(pos)
         if pos in self.tiles:
@@ -532,12 +541,12 @@ class CandidateTiles:
     def __sort_key(self, key_on_positioned_tile, reverse, pos):
         if pos not in self.tiles:
             return -sys.maxsize if reverse else sys.maxsize
-        else:
-            return key_on_positioned_tile(self.tiles[pos])
+        return key_on_positioned_tile(self.tiles[pos])
 
 
-    def __sort(self, key_on_positioned_tile, reverse):
-        self.sorted_positions.sort(key = lambda pos: self.__sort_key(key_on_positioned_tile, reverse, pos), reverse = reverse)
+    def __sort(self, key_on_positioned_tile, reverse: bool):
+        self.sorted_positions.sort(key = lambda pos: self.__sort_key(key_on_positioned_tile, reverse, pos),
+                                   reverse = reverse)
 
 
     def sort(self, key, reverse = False):
@@ -567,13 +576,15 @@ def validate_tile_placement(placed_tile, border):
                 common_segments = test_border.common_segments(test_tile_border)
                 if len(common_segments) != 1:
                     return False
-                (_, _, L) = common_segments[0]
-                if L != 1:
+                (_, _, s) = common_segments[0]
+                if s != 1:
                     return False
     return True
 
 
-def update_border_and_candidate_tiles(placed_tile, border, candidate_tiles):
+def update_border_and_candidate_tiles(placed_tile: PlacedTile,
+                                      border: Boundary,
+                                      candidate_tiles: CandidateTiles) -> PlacedTile:
     """
     This function updates the map boundary and the candidate tile placements
 
@@ -588,10 +599,6 @@ def update_border_and_candidate_tiles(placed_tile, border, candidate_tiles):
      - The length of the segment in contact with the map boundary
      - The L1 distance of the tile to the center of the map
     """
-    assert isinstance(placed_tile, PlacedTile)
-    assert isinstance(border, Boundary)
-    assert isinstance(candidate_tiles, CandidateTiles)
-
     # Merge the newly placed tile to the map boundary
     border.merge(placed_tile.get_boundary())
 
@@ -611,31 +618,28 @@ def update_border_and_candidate_tiles(placed_tile, border, candidate_tiles):
     return placed_tile
 
 
-def select_tile_placement(candidate_placements):
-    assert isinstance(candidate_placements, list)       # NB: A list of PlacedTile
+def select_tile_placement(candidate_placements: List[PlacedTile]):
     assert len(candidate_placements) > 0
-    # Nothing fancy
-    return candidate_placements[0]
+    return candidate_placements[0]              # Nothing fancy
 
 
-def find_candidate_placements(tile, border, candidate_tiles, max_candidates = -1, force_edge_label = None):
-    assert isinstance(tile, Tile)
-    assert isinstance(border, Boundary)
+def find_candidate_placements(tile: Tile, border: Boundary, candidate_tiles: CandidateTiles,
+                              max_candidates: int = -1, force_edge_label: str | None = None) -> List[PlacedTile]:
     assert len(border) > 0
-    assert isinstance(candidate_tiles, CandidateTiles)
     assert len(candidate_tiles) > 0
     candidate_placements = []
     for pos_tile in candidate_tiles.iterate():
-        (i0, j0, L0) = pos_tile.get_segment()
-        assert L0 > 0
+        (i0, j0, s0) = pos_tile.get_segment()
+        assert s0 > 0
         tile_border = pos_tile.get_boundary(list(tile.desc))
         # Recompute PositionedTile because the common segment's 'i' index will not match
         pos_tile = PositionedTile(pos_tile.pos, border.common_segments(tile_border))
-        (i1, j1, L1) = pos_tile.get_segment()
-        if (j0, L0) != (j1, L1):
-            logger.warning('Incoherent common segments for tile at %d in candidate_tiles: %s and computed against the current border: {}', pos_tile.pos, (i0, j0, L0), (i1, j1, L1))
+        (i1, j1, s1) = pos_tile.get_segment()
+        if (j0, s0) != (j1, s1):
+            logger.warning('Incoherent common segments for tile at %d in candidate_tiles: %s and computed against the current border: %s',
+                           repr(pos_tile.pos), repr((i0, j0, s0)), repr((i1, j1, s1)))
             continue
-        if force_edge_label is not None and force_edge_label not in Boundary.label_getter(border.iter_slice(i1, i1 + L1)):
+        if force_edge_label and force_edge_label not in Boundary.label_getter(border.iter_slice(i1, i1 + s1)):
             continue
         for r in border.find_matching_rotations(tile_border, pos_tile.get_segment()):
             placed_tile = PlacedTile.from_positioned_tile(pos_tile, tile, r)
@@ -646,12 +650,14 @@ def find_candidate_placements(tile, border, candidate_tiles, max_candidates = -1
     return candidate_placements
 
 
-def place_carcassonne_city(tileset, candidate_tiles, display, z, pos, r = 0):
+CARCASSONNE_CITY_NB_OF_TILES = 12
+
+
+def place_carcassonne_city(tileset: List[Any], candidate_tiles: CandidateTiles,
+                           display: graphics.GridDisplay, z: float, pos: Vect, r: int = 0) -> tuple[Boundary, int]:
     assert len(tileset) > 0
-    assert isinstance(pos, Vect)
-    CITY_NB_OF_TILES = 12
-    if len(tileset) != CITY_NB_OF_TILES:
-        logger.warning('Expected %d tiles for the city of Carcassonne', CITY_NB_OF_TILES)
+    if len(tileset) != CARCASSONNE_CITY_NB_OF_TILES:
+        logger.warning('Expected %d tiles for the city of Carcassonne', CARCASSONNE_CITY_NB_OF_TILES)
     composite_tile = CompositeTile()
     for tile in tileset:
         assert 'carcassonne_city' in tile.tags
@@ -662,7 +668,7 @@ def place_carcassonne_city(tileset, candidate_tiles, display, z, pos, r = 0):
     neighbor_tiles = [PositionedTile.from_boundary_edge(border, point, edge) for (point, edge, _) in border.iter_all()]
     for pos_tile in neighbor_tiles:
         candidate_tiles.update(pos_tile)
-    return border
+    return border, len(tileset)
 
 
 def parse_river_placement_policies(policies):
@@ -695,7 +701,7 @@ def generate_map(args):
     tileset = list(itertools.chain.from_iterable(parse_tileset_description_file(json_file) for json_file in args.files))
     if len(tileset) == 0:
         logger.critical('No tiles loaded')
-        exit(-1)
+        sys.exit(-1)
 
     # River tiles placement policy and period
     river_placement_policies = parse_river_placement_policies([RiverPlacement[policy] for policy in args.river_policy])
@@ -714,8 +720,8 @@ def generate_map(args):
         del tileset
 
         # Non-game tiles
-        riverside_tile = Tile.from_uniform_color((217, 236, 255), tile_size, 'riverside')
         forbidden_tile = Tile.from_uniform_color((100,  20,  20), tile_size, 'forbidden')
+        #riverside_tile = Tile.from_uniform_color((217, 236, 255), tile_size, 'riverside')
         segment_length_tiles = {
             0: forbidden_tile,
             1: Tile.from_uniform_color((10,  60, 10), tile_size, 'one_side'),
@@ -730,12 +736,19 @@ def generate_map(args):
 
         # Place random tiles. The map must grow!
         candidate_tiles = CandidateTiles(
-            on_update = lambda pos_tile: display.set_tile(segment_length_tiles[pos_tile.get_segment_length()].img, pos_tile.pos.x, pos_tile.pos.y) if args.debug_mode else None,
+            on_update = lambda pos_tile: display.set_tile(segment_length_tiles[pos_tile.get_segment_length()].img,
+                                                          pos_tile.pos.x, pos_tile.pos.y) if args.debug_mode else None,
             on_delete = None)
         z = args.zoom_factor
-        border = place_carcassonne_city(carcassonne_city_tileset, candidate_tiles, display, z, Vect(-2, -1)) if city_start_flag else Boundary()
+        border = Boundary()
         total_nb_tiles_placed = 0
         total_nb_tiles_not_placed = 0
+
+        # Place the composite tile first
+        if city_start_flag:
+            border, total_nb_tiles_placed = place_carcassonne_city(carcassonne_city_tileset, candidate_tiles, display, z, Vect(-2, -1))
+            logger.debug('total_nb_tiles_placed: %d', total_nb_tiles_placed)
+
         first_tileset_flag = not city_start_flag
         all_done_flag = False
         for tileset in iterate_tilesets(river_tileset, regular_tileset, river_tileset_period, infinite = (args.max_tiles > 0)):
@@ -751,7 +764,7 @@ def generate_map(args):
                             # The first tile of the map is placed at the center
                             placed_tile = PlacedTile(tile, Vect(0, 0), r = 0)
                         else:
-                            forced_segment = 'R' if 'river' in tile.tags and 'source' not in tile.tags else None
+                            forced_segment = 'R' if 'river' in tile.tags and 'source' not in tile.tags else ''
                             max_candidates = 1
                             candidate_placements = find_candidate_placements(tile, border, candidate_tiles, max_candidates, forced_segment)
                             placed_tile = select_tile_placement(candidate_placements) if len(candidate_placements) > 0 else None
@@ -808,7 +821,7 @@ def generate_map(args):
             if args.dump_to_img:
                 display.dump_to_img(DUMP_PATH, args.zoom_factor)
                 logger.info('Dump grid to %s', DUMP_PATH)
-        graphics.quit()
+        graphics.quit_window()
 
     return 0
 
@@ -838,10 +851,10 @@ if __name__ == "__main__":
                         help='Period of repetition of the river tileset. Set to zero for a single use of the river tileset')
     parser.add_argument('--seed', metavar='INT', type=int, dest='seed', default = 0,
                         help='A seed for the random generator (Default: Use a system generated seed)')
-    args = parser.parse_args()
+    cmd_line_args = parser.parse_args()
 
-    debug_log_lvl = args.debug_mode or EXTRA_DEBUG_PRINTOUT
+    debug_log_lvl = cmd_line_args.debug_mode or EXTRA_DEBUG_PRINTOUT
     logging.basicConfig(level=logging.DEBUG if debug_log_lvl else logging.INFO,
                         format='%(levelname)s: %(message)s')
 
-    generate_map(args)
+    generate_map(cmd_line_args)

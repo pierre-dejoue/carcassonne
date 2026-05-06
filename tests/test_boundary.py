@@ -1,3 +1,6 @@
+"""
+Test the boundary module
+"""
 import functools
 import unittest
 from collections import defaultdict
@@ -7,6 +10,8 @@ from boundary import Boundary, Domain, Orientation, Vect
 
 
 class TestVect(unittest.TestCase):
+    """Test the Vect class"""
+
     def test_operations(self):
         self.assertTrue(Vect(1, 0) == Vect(1, 0))
         self.assertFalse(Vect(1, 0) == Vect(1, 1))
@@ -18,11 +23,13 @@ class TestVect(unittest.TestCase):
         self.assertEqual(Vect(-3, 5).l1_distance(), 8)
 
 
-def make_border_from_tiles(tiles_args):
+def _make_border_from_tiles(tiles_args):
     return functools.reduce(lambda border, args: border.merge(boundary.get_tile(*args)), tiles_args, Boundary())
 
 
 class TestBoundary(unittest.TestCase):
+    """Test the Boundary class"""
+
     def setUp(self):
         self.border = Boundary()
         self.border.append(Vect(0, 0), 'F')
@@ -68,14 +75,14 @@ class TestBoundary(unittest.TestCase):
         for single_idx in range(4):
             single_tile = boundary.get_tile(tiles_bottom_left[single_idx])
             three_other_tiles = [(bl,) for bl in tiles_bottom_left[single_idx+1:] + tiles_bottom_left[:single_idx]]
-            border = make_border_from_tiles(three_other_tiles)
+            border = _make_border_from_tiles(three_other_tiles)
             self.assertEqual(len(border), 8)
             border.rotate_to_start_with(Vect(1, 1))
             for ii in range(len(border)):
                 segments = border.common_segments(single_tile)
                 self.assertEqual(len(segments), 1)
-                (i, j, L) = segments[0]
-                self.assertEqual(L, 2)
+                (i, j, s) = segments[0]
+                self.assertEqual(s, 2)
                 self.assertEqual(j, (single_idx + 1) % 4)
                 self.assertEqual(i, 7 - ii)
                 border.rotate_to_start_with(border.points[1])
@@ -101,7 +108,7 @@ class TestBoundary(unittest.TestCase):
             (Vect(2, 2), 'FFFF'),
             (Vect(1, 2), 'FFFF'),
             (Vect(0, 2), 'FFFF')]
-        border = make_border_from_tiles(tiles_args)
+        border = _make_border_from_tiles(tiles_args)
         self.assertEqual(len(border), 14)
         tile = boundary.get_tile(Vect(0, 1), 'FFFF')
         segments = border.common_segments(tile)
@@ -117,7 +124,7 @@ class TestBoundary(unittest.TestCase):
             (Vect(0, 2), 'FFFF'),
             (Vect(0, 1), 'FFFF'),
             (Vect(0, 0), 'FFFF')]
-        border = make_border_from_tiles(tiles_args)
+        border = _make_border_from_tiles(tiles_args)
         self.assertEqual(len(border), 16)
         tile = boundary.get_tile(Vect(1, 0), 'FFFF')
         segments = border.common_segments(tile)
@@ -146,7 +153,7 @@ class TestBoundary(unittest.TestCase):
             (Vect(0, 0), 'FFFF'),
             (Vect(0, 1), 'FFFF'),
             (Vect(1, 1), 'TFFF')]
-        border = make_border_from_tiles(tiles_args)
+        border = _make_border_from_tiles(tiles_args)
         border.rotate_to_start_with(Vect(0, 0))
         self.assertEqual(len(border), 8)
         self.assertEqual(border.labels, list('FFTFFFFF'))
@@ -160,6 +167,8 @@ class TestBoundary(unittest.TestCase):
 
 
 class TestFromEdge(unittest.TestCase):
+    """Test boundary.from_edge function"""
+
     def test_from_edge(self):
         bottom_lefts = defaultdict(int)
         for orientation in [Orientation.CLOCKWISE, Orientation.COUNTERCLOCKWISE]:
@@ -172,6 +181,8 @@ class TestFromEdge(unittest.TestCase):
 
 
 class TestGetTile(unittest.TestCase):
+    """Test boundary.get_tile function"""
+
     def test_get_tile(self):
         bottom_left = Vect(5, 7)
         tile = boundary.get_tile(bottom_left, 'FFTF')

@@ -1,11 +1,16 @@
+"""
+The boundary module is an abstract representation of the border of the map
+"""
 import functools
 import itertools
 import operator
 from enum import Enum
+from typing import List
 
 
 class Vect:
-    """2D vector"""
+    """A 2D vector"""
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -53,14 +58,16 @@ class Vect:
 
     def rotate(self, r):
         rmod = r % 4
+        result = Vect(self.x, self.y)
         if rmod == 0:
-            return Vect(self.x, self.y)
+            pass
         elif rmod == 1:
-            return Vect(-self.y, self.x)
+            result = Vect(-self.y, self.x)
         elif rmod == 2:
-            return Vect(-self.x, -self.y)
-        else:   # rmod == 3
-            return Vect(self.y, -self.x)
+            result = Vect(-self.x, -self.y)
+        elif rmod == 3:
+            result = Vect(self.y, -self.x)
+        return result
 
 
     def cmp_key(self):
@@ -68,17 +75,21 @@ class Vect:
 
 
 class Orientation(Enum):
+    """Path orientation"""
     CLOCKWISE = 0
     COUNTERCLOCKWISE = 1
     UNDEFINED = 2
 
 
 class Domain(Enum):
+    """Interior or exterior domain"""
     INTERIOR = 0
     EXTERIOR = 1
 
 
 class CompareLabels:
+    """Static class to compare labels"""
+
     @staticmethod
     def treat_none_as_regular_label(label_a, label_b):
         return label_a == label_b
@@ -88,19 +99,19 @@ class CompareLabels:
     def treat_none_as_match_always(label_a, label_b):
         if label_a is None or label_b is None:
             return True
-        else:
-            return label_a == label_b
+        return label_a == label_b
 
 
     @staticmethod
     def treat_none_as_match_never(label_a, label_b):
         if label_a is None or label_b is None:
             return False
-        else:
-            return label_a == label_b
+        return label_a == label_b
 
 
 class Boundary:
+    """The Boundary class is an abstraction of the border of the map"""
+
     def __init__(self):
         self.points = []
         self.labels = []
@@ -115,8 +126,7 @@ class Boundary:
         return len(self.points)
 
 
-    def append(self, vect, label = None):
-        assert isinstance(vect, Vect)
+    def append(self, vect: Vect, label = None) -> None:
         self.points.append(vect)
         self.labels.append(label)
 
@@ -210,12 +220,12 @@ class Boundary:
             return (sum + prev_edge.cross_z(edge), edge)
 
         sum_cross_z, _ = functools.reduce(cumul_cross_z, (self.get_edge(idx) for idx in range(len(self))), (0, self.get_edge(-1)))
+        ori = Orientation.UNDEFINED
         if sum_cross_z > 0:
-            return Orientation.COUNTERCLOCKWISE
+            ori = Orientation.COUNTERCLOCKWISE
         elif sum_cross_z < 0:
-            return Orientation.CLOCKWISE
-        else:
-            return Orientation.UNDEFINED
+            ori = Orientation.CLOCKWISE
+        return ori
 
 
     def is_unique_points(self):
@@ -224,10 +234,10 @@ class Boundary:
 
     def common_segments(self, other):
         """
-        Returns the common segments between two boundaries as a list of tuples (i, j, l) where:
+        Returns the common segments between two boundaries as a list of tuples (i, j, s) where:
             i: start of the segment in this boundary
             j: start of the segment in the other boundary
-            l: length of the segment
+            s: length of the segment
 
         Assumptions:
             The other boundary is outside of this boundary.
@@ -244,44 +254,47 @@ class Boundary:
         common_segments_length_0 = sorted([(self_points[p], other_points[p], 0) for p in common_points])
 
         # Merge into actual segments
-        def recurse_join_segments(remaining_length_0, cumul_segments = []):
+        def recurse_join_segments(remaining_length_0, cumul_segments = None):
+            if cumul_segments is None:
+                cumul_segments = []
             if len(remaining_length_0) == 0:
                 return cumul_segments
             (prev_i, prev_j, _) = remaining_length_0[0]
-            L = 0
+            s = 0
             seg_index = 1
             while seg_index < len(remaining_length_0):
                 (i, j, _) = remaining_length_0[seg_index]
-                L += 1
+                s += 1
                 seg_index += 1
-                if i != prev_i + L or j != (prev_j - L) % len(other_points):
-                    L = L - 1
+                if i != prev_i + s or j != (prev_j - s) % len(other_points):
+                    s = s - 1
                     break
-            cumul_segments.append((prev_i, (prev_j - L) % len(other_points), L))
-            return recurse_join_segments(remaining_length_0[L+1:], cumul_segments)
+            cumul_segments.append((prev_i, (prev_j - s) % len(other_points), s))
+            return recurse_join_segments(remaining_length_0[s + 1:], cumul_segments)
+
         common_segments = recurse_join_segments(common_segments_length_0)
 
         # Deal with the index rollover on 'i' (we might want to join the first and last segments)
         if len(common_segments) >= 2:
-            (i_first, j_first, L_first) = common_segments[0]
-            (i_last, j_last, L_last) = common_segments[-1]
-            if i_first == 0 and i_last + L_last == len(self_points) - 1 and (j_last - j_first) % len(other_points) == L_first + 1:
+            (i_first, j_first, l_first) = common_segments[0]
+            (i_last, j_last, l_last) = common_segments[-1]
+            if i_first == 0 and i_last + l_last == len(self_points) - 1 and (j_last - j_first) % len(other_points) == l_first + 1:
                 common_segments = common_segments[1:]
-                common_segments[-1] = (i_last, j_first, L_first + L_last + 1)
+                common_segments[-1] = (i_last, j_first, l_first + l_last + 1)
 
         return common_segments
 
 
     def find_matching_rotations(self, other, common_segment, cmp = CompareLabels.treat_none_as_regular_label):
         # assert self.orientation() == other.orientation()
-        (i, j, L) = common_segment
-        assert L > 0
-        assert L < len(self)
-        assert L < len(other)
-        self_labels = self.__slice(i, i + L).labels
+        (i, j, s) = common_segment
+        assert s > 0
+        assert s < len(self)
+        assert s < len(other)
+        self_labels = self.__slice(i, i + s).labels
         self_labels.reverse()
         for r in range(len(other)):
-            other_labels = other.__slice(j - r, j - r + L).labels
+            other_labels = other.__slice(j - r, j - r + s).labels
             assert len(other_labels) == len(self_labels)
             if all(cmp(*args) for args in zip(self_labels, other_labels)):
                 yield r
@@ -296,16 +309,16 @@ class Boundary:
             if hint_common_segment is None:
                 segments = self.common_segments(other)
                 assert len(segments) == 1
-                (i, j, L) = segments[0]
+                (i, j, s) = segments[0]
             else:
-                (i, j, L) = hint_common_segment
-            assert L > 0
-            assert L < len(self)
-            assert L < len(other)
+                (i, j, s) = hint_common_segment
+            assert s > 0
+            assert s < len(self)
+            assert s < len(other)
             merged = Boundary()
-            merged.__append(other.__slice(j + L, j))
-            merged.__append(self.__slice(i + L, i))
-            assert len(merged) + 2 * L == len(self) + len(other)
+            merged.__append(other.__slice(j + s, j))
+            merged.__append(self.__slice(i + s, i))
+            assert len(merged) + 2 * s == len(self) + len(other)
             self.__replace(merged)
         return self
 
@@ -321,25 +334,23 @@ class Boundary:
         self.labels = self.labels[idx:] + self.labels[:idx]
 
 
-def from_edge(point, edge, orientation, domain):
-    assert isinstance(point, Vect)
-    assert isinstance(edge, Vect)
-    assert isinstance(orientation, Orientation)
-    assert isinstance(domain, Domain)
+def from_edge(point: Vect, edge: Vect, orientation: Orientation, domain: Domain) -> Boundary:
+    """Build a Boundary from an Edge"""
     border = Boundary()
     current_point = point
     r = 1 if orientation == Orientation.COUNTERCLOCKWISE else -1
     current_dir = edge if domain == Domain.INTERIOR else edge.rotate(-r)
-    for i in range(4):
+    for _ in range(4):
         border.append(current_point)
         current_point = current_point + current_dir
         current_dir = current_dir.rotate(r)
     return border
 
 
-def get_tile(bottom_left, desc = [None, None, None, None]):
+def get_tile(bottom_left: Vect, desc: List[Vect | None] | None = None) -> Boundary:
     """Instantiate the boundary of a unit square tile given the coordinates of its bottom left corner and a description"""
-    assert isinstance(bottom_left, Vect)
+    if desc is None:
+        desc =  [None, None, None, None]
     assert len(desc) == 4
     border = Boundary()
     for idx, delta in enumerate([Vect(0, 0), Vect(1, 0), Vect(1, 1), Vect(0, 1)]):

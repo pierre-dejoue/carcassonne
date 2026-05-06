@@ -1,3 +1,6 @@
+"""
+Test the carcassonne module
+"""
 import unittest
 
 from boundary import Boundary, Vect
@@ -5,6 +8,8 @@ from carcassonne import CandidateTiles, PlacedTile, PositionedTile, Tile
 
 
 class TestPlacedTile(unittest.TestCase):
+    """Test the PlacedTile class"""
+
     def setUp(self):
         self.test_tile = Tile(desc = 'FPTP', tags = ['this_is_a_test'])
 
@@ -28,6 +33,8 @@ class TestPlacedTile(unittest.TestCase):
 
 
 class TestCandidateTiles(unittest.TestCase):
+    """Test the CandidateTiles class"""
+
     def setUp(self):
         self.candidates = CandidateTiles()
         self.candidates.update(PositionedTile(Vect(5, 5), segments = [(0, 0, 1), (1, 1, 1)]))
