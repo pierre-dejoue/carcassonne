@@ -1,7 +1,7 @@
 Carcassonne Map Generator
 =========================
 
-![Python3](http://img.shields.io/badge/python-3.9-blue.svg?v=1)
+![Python3](http://img.shields.io/badge/python-3.13-blue.svg?v=1)
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat-square)](./LICENSE)
 
 A tool that generates a randomized Carcassonne map!
@@ -28,8 +28,8 @@ python carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.
 Create a venv with the required packages:
 
 ```
-python -m venv .venv
-source .venv/Scripts/activate
+python -m venv venv
+source venv/Scripts/activate
 python -m pip install -r requirements.txt
 ```
 
