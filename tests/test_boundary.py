@@ -1,11 +1,9 @@
-import boundary
 import functools
 import unittest
-from boundary import Boundary
-from boundary import Domain
-from boundary import Orientation
-from boundary import Vect
 from collections import defaultdict
+
+import boundary
+from boundary import Boundary, Domain, Orientation, Vect
 
 
 class TestVect(unittest.TestCase):

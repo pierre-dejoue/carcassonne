@@ -2,11 +2,9 @@ import os
 import sys
 from collections import defaultdict
 
-
 # Silent pygame import
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "True"
 import pygame
-
 
 TILE_COLORS = {
     'F': pygame.Color(153, 187,  25),       # Field

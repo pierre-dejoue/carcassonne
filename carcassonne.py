@@ -2,9 +2,7 @@
 
 
 import argparse
-import boundary
 import functools
-import graphics
 import itertools
 import json
 import operator
@@ -14,13 +12,12 @@ import re
 import secrets
 import sys
 import traceback
-from boundary import Boundary
-from boundary import Domain
-from boundary import Orientation
-from boundary import Vect
 from collections import deque
 from enum import Enum, auto
 
+import boundary
+import graphics
+from boundary import Boundary, Domain, Orientation, Vect
 
 DEBUG_PRINTOUT = False
 DEFAULT_TILE_SIZE = 100

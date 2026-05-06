@@ -1,7 +1,7 @@
-from enum import Enum
 import functools
 import itertools
 import operator
+from enum import Enum
 
 
 class Vect:

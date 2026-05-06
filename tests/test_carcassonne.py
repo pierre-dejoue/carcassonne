@@ -1,10 +1,7 @@
-from carcassonne import CandidateTiles
-from carcassonne import PlacedTile
-from carcassonne import PositionedTile
-from carcassonne import Tile
-from boundary import Boundary
-from boundary import Vect
 import unittest
+
+from boundary import Boundary, Vect
+from carcassonne import CandidateTiles, PlacedTile, PositionedTile, Tile
 
 
 class TestPlacedTile(unittest.TestCase):
