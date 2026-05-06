@@ -16,7 +16,7 @@ class Vect:
 
 
     def __repr__(self):
-        return 'Vect({}, {})'.format(self.x, self.y)
+        return f'Vect({self.x}, {self.y})'
 
 
     def __add__(self, other):

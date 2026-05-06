@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from collections import defaultdict
@@ -5,6 +6,9 @@ from collections import defaultdict
 # Silent pygame import
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "True"
 import pygame
+
+logger = logging.getLogger(__name__)
+
 
 TILE_COLORS = {
     'F': pygame.Color(153, 187,  25),       # Field
@@ -17,11 +21,11 @@ UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
 
 def init():
     pygame.init()
-    print('Init pygame {} (SDL {}.{}.{}, Python {}.{}.{})'.format(
+    logger.debug('Init pygame %s (SDL %d.%d.%d, Python %d.%d.%d)',
         pygame.version.ver,
         *pygame.version.SDL,
         *sys.version_info[0:3]
-    ))
+    )
 
 
 def is_init():
@@ -82,7 +86,7 @@ def draw_uniform_tile(color, size):
     return Image(tile)
 
 
-def draw_game_tile(desc, size):
+def draw_game_tile(desc: str, size: int) -> Image:
     """
     Draw a simplified tile surface based on the tile description.
     For instance : 'FPTP' means Fied, Path, Town and Path sides, rotating counter-clockwise
@@ -158,10 +162,10 @@ class GridDisplay:
         self.screen.blit(scaled_img, pos)
 
 
-    def set_tile(self, image, i, j, r = 0):
-        assert isinstance(image, Image)
+    def set_tile(self, image: Image, i: int, j: int, r: int = 0):
         self.dbg_counters['calls_to_set_tile'] += 1
         self.dbg_info['last_set_tile'] = repr((i, j, r))
+        #logger.debug('image size: %dx%d; tile_size: %d', image.width(), image.height(), self.tile_size)
         assert image.height() == self.tile_size
         assert image.width() == self.tile_size
         rotated_img = pygame.transform.rotate(image.converted_img(), r * 90)

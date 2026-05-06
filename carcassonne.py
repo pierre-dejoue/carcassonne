@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-
-
 import argparse
 import functools
 import itertools
 import json
+import logging
 import operator
 import os.path
 import random
@@ -19,7 +18,11 @@ import boundary
 import graphics
 from boundary import Boundary, Domain, Orientation, Vect
 
-DEBUG_PRINTOUT = False
+logger = logging.getLogger(__name__)
+
+EXTRA_DEBUG_PRINTOUT = False
+DEFAUT_DISPLAY_W = 1280
+DEFAUT_DISPLAY_H = 720
 DEFAULT_TILE_SIZE = 100
 SCREENSHOT_PATH = './screenshot.jpg'
 DUMP_PATH = './dump.bmp'
@@ -36,15 +39,6 @@ RIVER_PLACEMENT_DEFAULT_T_POLICY = RiverPlacement.USE_T
 RIVER_PLACEMENT_DEFAULT_LENGTH_POLICY = RiverPlacement.SHORT_RIVER
 
 
-def warn(msg):
-    print('Warning: ' + msg)
-
-
-def error(msg):
-    print('Error: ' + msg, file = sys.stderr)
-    exit(-1)
-
-
 def override(f):
     # Eye-candy decorator
     return f
@@ -54,7 +48,7 @@ def handle_assertion_error():
     _, _, tb = sys.exc_info()
     tb_info = traceback.extract_tb(tb)
     filename, line, func, text = tb_info[-1]
-    warn('An error occurred in file {} line {} in statement "{}"'.format(filename, line, text))
+    logger.error('An error occurred in file %s line %d in statement "%s"', filename, line, text)
 
 
 class Tile:
@@ -68,7 +62,7 @@ class Tile:
 
 
     def __repr__(self):
-        return 'Tile({})'.format(self.desc)
+        return f'Tile({self.desc})'
 
 
     @classmethod
@@ -98,7 +92,7 @@ class Tile:
         try:
             self.img = graphics.load_image(self.img_path)
         except Exception as e:
-            warn('Could not load image: {} (message: {})'.format(self.img_path, e))
+            logger.warning('Could not load image: %s (message: %s)', self.img_path, e)
             self.img = None
 
 
@@ -132,17 +126,17 @@ def parse_tileset_description_file(json_file):
                 cumul += tile.max_nb
                 yield tile
     except FileNotFoundError:
-        warn('Could not load file {}'.format(json_file))
+        logger.warning('Could not load file %s', json_file)
     except AssertionError:
         handle_assertion_error()
     except Exception:
-        warn('Error parsing file {}'.format(json_file))
+        logger.warning('Error parsing file %s', json_file)
         raise
     finally:
         if fp is not None:
             fp.close()
     if cumul > 0:
-        print('Loaded {} tiles from file {}'.format(cumul, json_file))
+        logger.info('Loaded %d tiles from file %s', cumul, json_file)
 
 
 def load_or_draw_tile_images(tileset, draw_all = False):
@@ -155,7 +149,8 @@ def load_or_draw_tile_images(tileset, draw_all = False):
                 if tile_size == 0:
                     tile_size = tile.get_size()
                 elif tile.get_size() != tile_size:
-                    error('Image size of file {} ({}) does not match the previous size ({})'.format(tile.img_path, tile.get_size(), tile_size))
+                    logger.critical('Image size of file %s (%d) does not match the previous size (%d)', tile.img_path, tile.get_size(), tile_size)
+                    exit(-1)
     if tile_size == 0:
         tile_size = DEFAULT_TILE_SIZE
     for tile in tileset:
@@ -167,7 +162,7 @@ def load_or_draw_tile_images(tileset, draw_all = False):
 
 class PositionedTile:
     """Declare a position on the grid where a tile could be placed"""
-    def __init__(self, pos, segments = []):
+    def __init__(self, pos: Vect, segments = []):
         assert isinstance(pos, Vect)
         self.pos = pos
         if len(segments) == 1:
@@ -188,7 +183,7 @@ class PositionedTile:
 
 
     def __repr__(self):
-        return 'PositionedTile(pos = {}, segment = {})'.format(self.pos, self.segment)
+        return f'PositionedTile(pos = {self.pos}, segment = {self.segment})'
 
 
     def get_l1_distance(self):
@@ -224,27 +219,24 @@ class PositionedTile:
 
 class PlacedTile(PositionedTile):
     """Declares a Tile placed on the grid, with its position and orientation (r)"""
-    def __init__(self, tile, pos, r, segment = None):
+    def __init__(self, tile: Tile, pos: Vect, r: int, segment = None):
         assert isinstance(tile, Tile)
-        PositionedTile.__init__(self, pos, [] if segment is None else [segment])
+        PositionedTile.__init__(self, pos, [] if not segment else [segment])
         self.tile = tile
         self.r = r
 
 
     @override
     def __repr__(self):
-        return 'PlacedTile(pos = {}, r = {}, segment = {}, tile = {})'.format(self.pos, self.r, self.segment, self.tile)
+        return f'PlacedTile(pos = {self.pos}, r = {self.r}, segment = {self.segment}, tile = {self.tile})'
 
 
     @classmethod
-    def from_positioned_tile(cls, pos_tile, tile, r):
-        assert isinstance(pos_tile, PositionedTile)
-        assert isinstance(tile, Tile)
+    def from_positioned_tile(cls, pos_tile: PositionedTile, tile: Tile, r: int):
         return cls(tile, pos_tile.pos, r, pos_tile.segment)
 
 
-    def draw(self, display):
-        assert isinstance(display, graphics.GridDisplay)
+    def draw(self, display: graphics.GridDisplay):
         assert self.tile.img is not None
         display.set_tile(self.tile.img, self.pos.x, self.pos.y, self.r)
 
@@ -282,7 +274,7 @@ class CompositeTile:
         if offset:
             self.elts.append(CompositeTile.Elt(tile, offset))
         else:
-            warn('Could not find the offset pattern in the tags for tile {}. Tags = {}.'.format(tile, tile.tags))
+            logger.warning('Could not find the offset pattern in the tags for tile %s. Tags = %s.', tile, str(tile.tags))
 
 
     def __reduce(self, fun, initializer = None):
@@ -391,7 +383,7 @@ class TileSubset:
     def exclude_remaining(warn_on_excluded = True):
         def pred_exclude_remaining(tile):
             if warn_on_excluded:
-                warn('Excluded tile: {}'.format(tile))
+                logger.warning('Excluded tile: %s', tile)
             return True
         return TileSubset(pred_exclude_remaining, output_n = 0)
 
@@ -555,13 +547,13 @@ class CandidateTiles:
             self.__resize()
 
 
-    def debug_printout(self):
-        print('Candidates: (used/total: {}/{})'.format(len(self.tiles), len(self.sorted_positions)))
+    def extra_debug_printout(self):
+        logger.debug('Candidates: (used/total: %d/%d)', len(self.tiles), len(self.sorted_positions))
         for pos in self.sorted_positions:
             if pos in self.tiles:
-                print('nb_contact_sides={}, pos={}'.format(self.tiles[pos].get_segment_length(), pos))
+                logger.debug('nb_contact_sides=%d, pos=%s', self.tiles[pos].get_segment_length(), repr(pos))
             else:
-                print('to_be_deleted, pos={}'.format(pos))
+                logger.debug('to_be_deleted, pos=%s', repr(pos))
 
 
 def validate_tile_placement(placed_tile, border):
@@ -614,8 +606,8 @@ def update_border_and_candidate_tiles(placed_tile, border, candidate_tiles):
     # Sort the updated list of candidates
     candidate_tiles.sort(key=PlacedTile.get_l1_distance)
     candidate_tiles.sort(key=PlacedTile.get_segment_length, reverse=True)
-    if DEBUG_PRINTOUT:
-        candidate_tiles.debug_printout()
+    if EXTRA_DEBUG_PRINTOUT:
+        candidate_tiles.extra_debug_printout()
     return placed_tile
 
 
@@ -641,7 +633,7 @@ def find_candidate_placements(tile, border, candidate_tiles, max_candidates = -1
         pos_tile = PositionedTile(pos_tile.pos, border.common_segments(tile_border))
         (i1, j1, L1) = pos_tile.get_segment()
         if (j0, L0) != (j1, L1):
-            warn('Incoherent common segments for tile at {} in candidate_tiles: {} and computed against the current border: {}'.format(pos_tile.pos, (i0, j0, L0), (i1, j1, L1)))
+            logger.warning('Incoherent common segments for tile at %d in candidate_tiles: %s and computed against the current border: {}', pos_tile.pos, (i0, j0, L0), (i1, j1, L1))
             continue
         if force_edge_label is not None and force_edge_label not in Boundary.label_getter(border.iter_slice(i1, i1 + L1)):
             continue
@@ -657,8 +649,9 @@ def find_candidate_placements(tile, border, candidate_tiles, max_candidates = -1
 def place_carcassonne_city(tileset, candidate_tiles, display, z, pos, r = 0):
     assert len(tileset) > 0
     assert isinstance(pos, Vect)
-    if len(tileset) != 12:
-        warn('Expected 12 tiles for the city of Carcassonne')
+    CITY_NB_OF_TILES = 12
+    if len(tileset) != CITY_NB_OF_TILES:
+        logger.warning('Expected %d tiles for the city of Carcassonne', CITY_NB_OF_TILES)
     composite_tile = CompositeTile()
     for tile in tileset:
         assert 'carcassonne_city' in tile.tags
@@ -692,39 +685,24 @@ def parse_river_placement_policies(policies):
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
-    parser.add_argument('files', metavar='FILE', nargs='*', help='Tile description file (JSON format)')
-    parser.add_argument('-d', '--debug', dest='debug_mode', action='store_true', help='Display non-game tiles, etc.')
-    parser.add_argument('-n', metavar='N', type=int, dest='max_tiles', default = 0, help='Number of tiles to display (Default: The whole tileset)')
-    parser.add_argument('-z', '--zoom-factor', metavar='Z', type=float, dest='zoom_factor', default = 1.0, help='Initial zoom factor (Default: 1.0)')
-    parser.add_argument('--draw-all', dest='draw_all', action='store_true', help='Draw all tiles')
-    parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true', help='Full screen')
-    parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true', help='Take a screenshot of the final display')
-    parser.add_argument('--dump', dest='dump_to_img', action='store_true', help='Dump the final grid to an image')
-    parser.add_argument('--river-policy', type=str, dest='river_policy', choices=[policy.name for policy in RiverPlacement], action='append', default=[], help='Placement policies for the river tileset. Can be used multiple times')
-    parser.add_argument('--river-period', metavar='P', type=int, dest='river_period', default=1, help='Period of repetition of the river tileset. Set to zero for a single use of the river tileset')
-    parser.add_argument('--seed', metavar='INT', type=int, dest='seed', default = 0, help='A seed for the random generator (Default: Use a system generated seed)')
-    args = parser.parse_args()
-
+def generate_map(args):
     # Set random seed
-    rng_seed = args.seed
-    if rng_seed == 0:
-        rng_seed = secrets.randbits(64)
-    print('Random seed: {}'.format(rng_seed))
+    rng_seed = args.seed if args.seed != 0 else secrets.randbits(64)
+    logger.info('Random seed: %s', str(rng_seed))
     random.seed(rng_seed)
 
     # Load tileset (JSON files)
     tileset = list(itertools.chain.from_iterable(parse_tileset_description_file(json_file) for json_file in args.files))
     if len(tileset) == 0:
-        error('No tiles loaded')
+        logger.critical('No tiles loaded')
+        exit(-1)
 
     # River tiles placement policy and period
     river_placement_policies = parse_river_placement_policies([RiverPlacement[policy] for policy in args.river_policy])
     river_tileset_period = args.river_period if args.river_period >= 0 else 0
-    if args.debug_mode and any('river' in tile.tags for tile in tileset):
-        print('river_placement_policies: {}'.format([policy.name for policy in river_placement_policies]))
-        print('river_tileset_period: {}'.format(river_tileset_period))
+    if any('river' in tile.tags for tile in tileset):
+        logger.debug('river_placement_policies: %s', str([policy.name for policy in river_placement_policies]))
+        logger.debug('river_tileset_period: %d', river_tileset_period)
 
     try:
         # Load tile images, and draw missing ones
@@ -746,9 +724,9 @@ def main():
         }
 
         # Open display
-        (w, h) = (0, 0) if args.full_screen else (1280, 720)
+        (w, h) = (0, 0) if args.full_screen else (DEFAUT_DISPLAY_W, DEFAUT_DISPLAY_H)
         display = graphics.GridDisplay(w, h, tile_size)
-        print('Press ESCAPE in the graphics window to quit', flush = True)
+        logger.info('Press ESCAPE in the graphics window to quit')
 
         # Place random tiles. The map must grow!
         candidate_tiles = CandidateTiles(
@@ -792,15 +770,13 @@ def main():
                         # making no progress, stop there
                         total_nb_tiles_not_placed += len(tiles_not_placed)
                         for tile in tiles_not_placed:
-                            warn('Could not place tile: {}'.format(tile))
-
+                            logger.debug('Could not place tile: %s', tile)
                         break
                     assert len(tiles_not_placed) < len(tiles_to_place)
                     tiles_to_place = tiles_not_placed
 
                 # Done with the current tiles subset
-                if DEBUG_PRINTOUT or args.debug_mode:
-                    print('total_nb_tiles_placed: {} (+{})'.format(total_nb_tiles_placed, local_nb_tiles_placed))
+                logger.debug('total_nb_tiles_placed: %d (+%d)', total_nb_tiles_placed, local_nb_tiles_placed)
                 if all_done_flag:
                     break
 
@@ -812,10 +788,9 @@ def main():
 
         # Completely done!
         display.update(z)
-        print('Done!')
-        print('total_nb_tiles_not_placed: {}'.format(total_nb_tiles_not_placed))
-        print('total_nb_tiles_placed: {}'.format(total_nb_tiles_placed))
-        sys.stdout.flush()
+        logger.info('Done!')
+        logger.info('total_nb_tiles_not_placed: %d', total_nb_tiles_not_placed)
+        logger.info('total_nb_tiles_placed: %d', total_nb_tiles_placed)
 
         # Wait until the user quits
         while True:
@@ -825,18 +800,48 @@ def main():
         pass
 
     finally:
-        if args.debug_mode and 'display' in locals():
-            print(display.get_debug_info())
-        if (args.take_screenshot or args.debug_mode) and 'display' in locals():
-            display.take_screenshot(SCREENSHOT_PATH)
-            print('Screenshot saved in {}'.format(SCREENSHOT_PATH))
-        if args.dump_to_img and 'display' in locals():
-            display.dump_to_img(DUMP_PATH, args.zoom_factor)
-            print('Dump grid to {}'.format(DUMP_PATH))
+        if 'display' in locals():
+            logger.debug('Display: %s', str(display.get_debug_info()))
+            if args.take_screenshot or args.debug_mode:
+                display.take_screenshot(SCREENSHOT_PATH)
+                logger.info('Screenshot saved in %s', SCREENSHOT_PATH)
+            if args.dump_to_img:
+                display.dump_to_img(DUMP_PATH, args.zoom_factor)
+                logger.info('Dump grid to %s', DUMP_PATH)
         graphics.quit()
 
     return 0
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
+    parser.add_argument('files', metavar='FILE', nargs='*',
+                        help='Tile description file (JSON format)')
+    parser.add_argument('-d', '--debug', dest='debug_mode', action='store_true',
+                        help='Display non-game tiles, debug log level, etc.')
+    parser.add_argument('-n', metavar='N', type=int, dest='max_tiles', default = 0,
+                        help='Number of tiles to display (Default: The whole tileset)')
+    parser.add_argument('-z', '--zoom-factor', metavar='Z', type=float, dest='zoom_factor', default = 1.0,
+                        help='Initial zoom factor (Default: 1.0)')
+    parser.add_argument('--draw-all', dest='draw_all', action='store_true',
+                        help='Draw a simplified representation of the tiles')
+    parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true',
+                        help='Full screen')
+    parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true',
+                        help='Take a screenshot of the final display')
+    parser.add_argument('--dump', dest='dump_to_img', action='store_true',
+                        help='Dump the final grid to an image')
+    parser.add_argument('--river-policy', type=str, dest='river_policy',
+                        choices=[policy.name for policy in RiverPlacement], action='append', default=[],
+                        help='Placement policies for the river tileset. This option can be used multiple times.')
+    parser.add_argument('--river-period', metavar='P', type=int, dest='river_period', default=1,
+                        help='Period of repetition of the river tileset. Set to zero for a single use of the river tileset')
+    parser.add_argument('--seed', metavar='INT', type=int, dest='seed', default = 0,
+                        help='A seed for the random generator (Default: Use a system generated seed)')
+    args = parser.parse_args()
+
+    debug_log_lvl = args.debug_mode or EXTRA_DEBUG_PRINTOUT
+    logging.basicConfig(level=logging.DEBUG if debug_log_lvl else logging.INFO,
+                        format='%(levelname)s: %(message)s')
+
+    generate_map(args)
