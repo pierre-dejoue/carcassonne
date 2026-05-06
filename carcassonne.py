@@ -424,7 +424,7 @@ def iterate_tilesets(river_tileset, regular_tileset, river_tileset_period = 0, i
         first = False
 
 
-def shuffle_tileset(tileset, first_tileset_flag, river_placement_policies = None):
+def shuffle_tileset(tileset, first_tileset_flag: bool, river_placement_policies = None):
     if river_placement_policies is None:
         river_placement_policies = []
     river_flag = any('river' in tile.tags for tile in tileset)
@@ -751,7 +751,8 @@ def generate_map(args):
 
         first_tileset_flag = not city_start_flag
         all_done_flag = False
-        for tileset in iterate_tilesets(river_tileset, regular_tileset, river_tileset_period, infinite = (args.max_tiles > 0)):
+        infinite_iterations = args.max_tiles > 0 and len(regular_tileset) > 0
+        for tileset in iterate_tilesets(river_tileset, regular_tileset, river_tileset_period, infinite=infinite_iterations):
             for tiles_to_place in shuffle_tileset(tileset, first_tileset_flag, river_placement_policies):
                 local_nb_tiles_placed = 0
                 while len(tiles_to_place) > 0:
@@ -786,6 +787,7 @@ def generate_map(args):
                             logger.debug('Could not place tile: %s', tile)
                         break
                     assert len(tiles_not_placed) < len(tiles_to_place)
+                    #logger.debug('len(tiles_not_placed): %d; len(tiles_to_place): %d', len(tiles_not_placed), len(tiles_to_place))
                     tiles_to_place = tiles_not_placed
 
                 # Done with the current tiles subset
