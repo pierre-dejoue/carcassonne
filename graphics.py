@@ -79,11 +79,10 @@ def path_polygon(x0, y0, x1, y1, xc, yc, width_percent):
     ]
 
 
-def draw_uniform_tile(color, size):
-    (r, g, b) = color
+def draw_uniform_tile(color: tuple[int, int, int], size: int):
     assert is_init()
     tile = pygame.Surface((size, size))
-    tile.fill(pygame.Color(r, g, b))
+    tile.fill(pygame.Color(color))
     return Image(tile)
 
 
@@ -98,12 +97,11 @@ def draw_game_tile(desc: str, size: int) -> Image:
     rect = tile.get_rect()
     tile.fill(TILE_COLORS['F'])
     corners = [rect.bottomleft, rect.bottomright, rect.topright, rect.topleft]
-    idx = 0
-    for quarter_desc in desc:
+    for idx, quarter_desc in enumerate(desc):
         x0, y0 = corners[idx % 4]
         x1, y1 = corners[(idx + 1) % 4]
         xc, yc = rect.center
-        if quarter_desc == 'T' or quarter_desc not in TILE_COLORS.keys():
+        if quarter_desc == 'T' or quarter_desc not in TILE_COLORS:
             polygon = [
                 (x0, y0),
                 (xc, yc),
@@ -115,10 +113,9 @@ def draw_game_tile(desc: str, size: int) -> Image:
             polygon = path_polygon(x0, y0, x1, y1, xc, yc, 15)
         else:
             polygon = []
-        color = TILE_COLORS[quarter_desc] if quarter_desc in TILE_COLORS.keys() else UNKNOWN_DESC_COLOR
+        color = TILE_COLORS[quarter_desc] if quarter_desc in TILE_COLORS else UNKNOWN_DESC_COLOR
         if len(polygon) > 0:
             pygame.draw.polygon(tile, color, polygon)
-        idx = idx + 1
     return Image(tile)
 
 
