@@ -20,6 +20,13 @@ A more elaborate example with the river tileset used a single time, excluding th
 python carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.5 resources/tileset_base.json resources/tileset_river.json
 ```
 
+## Controls
+
+In the display window:
+
+* Press 'F11' or 'F'' to toggle fullscreen
+* Press 'ESCAPE' to quit
+
 ## Requirements
 
 * __Python 3.x__: http://www.python.org/download/

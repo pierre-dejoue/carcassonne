@@ -730,9 +730,10 @@ def generate_map(args):
         }
 
         # Open display
-        (w, h) = (0, 0) if args.full_screen else (DEFAUT_DISPLAY_W, DEFAUT_DISPLAY_H)
-        display = graphics.GridDisplay(w, h, tile_size)
-        logger.info('Press ESCAPE in the graphics window to quit')
+        w, h = DEFAUT_DISPLAY_W, DEFAUT_DISPLAY_H
+        display = graphics.GridDisplay(w, h, args.fullscreen, tile_size)
+        logger.info("Press 'F11' or 'F'' to toggle fullscreen")
+        logger.info("Press 'ESCAPE' in the graphics window to quit")
 
         # Place random tiles. The map must grow!
         candidate_tiles = CandidateTiles(
@@ -840,7 +841,7 @@ if __name__ == "__main__":
                         help='Initial zoom factor (Default: 1.0)')
     parser.add_argument('--draw-all', dest='draw_all', action='store_true',
                         help='Draw a simplified representation of the tiles')
-    parser.add_argument('-f', '--full-screen', dest='full_screen', action='store_true',
+    parser.add_argument('-f', '--full-screen', dest='fullscreen', action='store_true',
                         help='Full screen')
     parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true',
                         help='Take a screenshot of the final display')

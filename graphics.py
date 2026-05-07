@@ -17,6 +17,7 @@ TILE_COLORS = {
     'R': pygame.Color(0,   0,   200),       # River
 }
 UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
+FULLSCREEN_KEYS = [pygame.K_F11, pygame.K_f]
 
 
 def init() -> None:
@@ -130,20 +131,20 @@ def format_32bit_flag(i):
 class GridDisplay:
     """A pygame display used to show a grid-type object"""
 
-    def __init__(self, w, h, tile_size):
+    def __init__(self, w: int, h: int, fullscreen: bool, tile_size: int):
+        assert tile_size > 0
         if not is_init():
             raise RuntimeError('Call graphics.init() prior to instantiating the grid display')
-        if (w, h) == (0, 0):
-            self.screen = pygame.display.set_mode((0, 0), flags = pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
-        else:
-            self.screen = pygame.display.set_mode((w, h))
-        assert tile_size > 0
+        self.w = w
+        self.h = h
+        self.fullscreen = fullscreen
+        self.screen = self._init_screen()
+        self.center = self.screen.get_rect().center
         self.tile_size = tile_size
         self.current_zoom = 0.0
         self.tiles = {}
         self.bottomleft = (0, 0)
         self.topright = (0, 0)
-        self.center = self.screen.get_rect().center
         self.dbg_counters = defaultdict(int)
         self.dbg_info = {}
         self.dbg_info['display_flags'] = format_32bit_flag(self.screen.get_flags())
@@ -154,8 +155,22 @@ class GridDisplay:
         self.dbg_info['current_zoom'] = self.current_zoom
 
 
-    def __blit(self, rotated_img, i, j):
-        self.dbg_counters['calls_to___blit'] += 1
+    def _init_screen(self):
+        if self.fullscreen:
+            flags = pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF
+            return pygame.display.set_mode((0, 0), flags=flags)
+        return pygame.display.set_mode((self.w, self.h))
+
+
+    def _redraw_screen(self):
+        self.screen.fill(pygame.Color(0, 0, 0))
+        for coord, img in self.tiles.items():
+            self._blit(img, coord[0], coord[1])
+        pygame.display.flip()
+
+
+    def _blit(self, rotated_img, i, j):
+        self.dbg_counters['calls_to__blit'] += 1
         target_size = round(self.tile_size * self.current_zoom)
         scaled_img = pygame.transform.smoothscale(rotated_img, (target_size, target_size))
         pos = scaled_img.get_rect().move(self.center).move((-0.5 + i) * target_size, (-0.5 - j) * target_size).topleft
@@ -165,12 +180,11 @@ class GridDisplay:
     def set_tile(self, image: Image, i: int, j: int, r: int = 0):
         self.dbg_counters['calls_to_set_tile'] += 1
         self.dbg_info['last_set_tile'] = repr((i, j, r))
-        #logger.debug('image size: %dx%d; tile_size: %d', image.width(), image.height(), self.tile_size)
         assert image.height() == self.tile_size
         assert image.width() == self.tile_size
         rotated_img = pygame.transform.rotate(image.converted_img(), r * 90)
         self.tiles[(i, j)] = rotated_img
-        self.__blit(rotated_img, i, j)
+        self._blit(rotated_img, i, j)
         if i < self.bottomleft[0]:
             self.bottomleft = (i, self.bottomleft[1])
         elif i > self.topright[0]:
@@ -187,7 +201,7 @@ class GridDisplay:
         del self.tiles[(i, j)]
         black_tile = pygame.Surface((self.tile_size, self.tile_size))
         black_tile.fill(pygame.Color(0, 0, 0))
-        self.__blit(black_tile, i, j)
+        self._blit(black_tile, i, j)
 
 
     def check_event_queue(self, wait_ms = 0):
@@ -197,27 +211,33 @@ class GridDisplay:
                 raise MustQuit()
             if event.type == pygame.KEYUP and event.key == pygame.K_ESCAPE:
                 raise MustQuit()
+            if event.type == pygame.KEYUP and event.key in FULLSCREEN_KEYS:
+                self.toggle_fullscreen()
         if wait_ms > 0:
             pygame.time.wait(wait_ms)
 
 
-    def update(self, zoom = 1.0, wait_ms = 0):
+    def update(self, zoom: float = 1.0, wait_ms: int = 0):
         self.dbg_counters['calls_to_update'] += 1
         assert zoom > 0.0
         if zoom != self.current_zoom:
-            self.screen.fill(pygame.Color(0, 0, 0))
             self.current_zoom = zoom
             self.dbg_info['current_zoom'] = self.current_zoom
-            for coord, img in self.tiles.items():
-                self.__blit(img, coord[0], coord[1])
-        pygame.display.flip()
+        self._redraw_screen()
         self.check_event_queue(wait_ms)
+
+
+    def toggle_fullscreen(self):
+        self.fullscreen = not (self.screen.get_flags() & pygame.FULLSCREEN)
+        self.screen = self._init_screen()
+        self.center = self.screen.get_rect().center
+        self._redraw_screen()
 
 
     def get_debug_info(self):
         dbg = {
             'library_name': 'pygame',
-            'library_version': pygame.version.ver
+            'library_version': pygame.version.ver,
         }
         for k, v in self.dbg_info.items():
             dbg[k] = v
