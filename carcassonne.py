@@ -656,7 +656,7 @@ CARCASSONNE_CITY_NB_OF_TILES = 12
 
 
 def place_carcassonne_city(tileset: List[Any], candidate_tiles: CandidateTiles,
-                           display: graphics.GridDisplay, z: float, pos: Vect, r: int = 0) -> tuple[Boundary, int]:
+                           display: graphics.GridDisplay, pos: Vect, r: int = 0) -> tuple[Boundary, int]:
     assert len(tileset) > 0
     if len(tileset) != CARCASSONNE_CITY_NB_OF_TILES:
         logger.warning('Expected %d tiles for the city of Carcassonne', CARCASSONNE_CITY_NB_OF_TILES)
@@ -665,7 +665,7 @@ def place_carcassonne_city(tileset: List[Any], candidate_tiles: CandidateTiles,
         assert 'carcassonne_city' in tile.tags
         composite_tile.append(tile)
     composite_tile.draw(display, pos, r)
-    display.update(z)
+    display.update()
     border = composite_tile.get_boundary(pos, r)
     neighbor_tiles = [PositionedTile.from_boundary_edge(border, point, edge) for (point, edge, _) in border.iter_all()]
     for pos_tile in neighbor_tiles:
@@ -750,7 +750,7 @@ def generate_map(args):
 
         # Place the composite tile first
         if city_start_flag:
-            border, total_nb_tiles_placed = place_carcassonne_city(carcassonne_city_tileset, candidate_tiles, display, z, Vect(-2, -1))
+            border, total_nb_tiles_placed = place_carcassonne_city(carcassonne_city_tileset, candidate_tiles, display, Vect(-2, -1))
             logger.debug('total_nb_tiles_placed: %d', total_nb_tiles_placed)
 
         first_tileset_flag = not city_start_flag
@@ -778,8 +778,6 @@ def generate_map(args):
                             placed_tile.draw(display)
                             total_nb_tiles_placed += 1
                             local_nb_tiles_placed += 1
-                            # z = 0.995 * z
-                            # display.update(z, 100)
                         else:
                             tiles_not_placed.append(tile)
                     if all_done_flag:
@@ -803,10 +801,10 @@ def generate_map(args):
             if all_done_flag:
                 break
             first_tileset_flag = False
-            display.update(z)
+            display.update()
 
         # Completely done!
-        display.update(z)
+        display.update()
         logger.info('Done!')
         logger.info('total_nb_tiles_not_placed: %d', total_nb_tiles_not_placed)
         logger.info('total_nb_tiles_placed: %d', total_nb_tiles_placed)
@@ -837,8 +835,8 @@ if __name__ == "__main__":
         'Display a randomized Carcassonne map\n\n'
         'UI Controls:\n\n'
     )
-    for ui_ctrl in graphics.GridDisplay.list_ui_controls():
-        tool_description += ' - ' + ui_ctrl + '\n'
+    for _ui_ctrl in graphics.GridDisplay.list_ui_controls():
+        tool_description += ' - ' + _ui_ctrl + '\n'
     parser = argparse.ArgumentParser(description=tool_description, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('files', metavar='FILE', nargs='*',
                         help='Tile description file (JSON format)')

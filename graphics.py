@@ -1,3 +1,6 @@
+"""
+Display the map on the screen
+"""
 import logging
 import os
 import sys
@@ -141,19 +144,19 @@ class GridDisplay:
         self.w = w
         self.h = h
         self.fullscreen = fullscreen
-        self.screen = self._init_screen()
-        self.center = self.screen.get_rect().center
+        self.screen: pygame.Surface = self._init_screen()
+        self.center: tuple[int, int] = self.screen.get_rect().center
         self.tile_size = tile_size
         self.initial_zoom = initial_zoom
         self.current_zoom = initial_zoom
         self.zoom_factor = zoom_factor
-        self.pan_offset = (0.0, 0.0)
+        self.pan_offset: tuple[float, float] = (0.0, 0.0)
         self.pan_step = pan_step
-        self.tiles = {}
-        self.bottomleft = (0, 0)
-        self.topright = (0, 0)
-        self.dbg_counters = defaultdict(int)
-        self.dbg_info = {}
+        self.tiles: dict[tuple[int, int], pygame.Surface] = {}
+        self.bottomleft: tuple[int, int] = (0, 0)
+        self.topright: tuple[int, int] = (0, 0)
+        self.dbg_counters: defaultdict[str, int] = defaultdict(int)
+        self.dbg_info: dict[str, object] = {}
         self.dbg_info['display_flags'] = format_32bit_flag(self.screen.get_flags())
         self.dbg_info['display_bitsize'] = self.screen.get_bitsize()
         self.dbg_info['display_height'] = self.screen.get_height()
@@ -170,6 +173,7 @@ class GridDisplay:
 
 
     def _redraw_screen(self):
+        self.dbg_counters['calls_to__redraw_screen'] += 1
         self.screen.fill(pygame.Color(0, 0, 0))
         for coord, img in self.tiles.items():
             self._blit(img, coord[0], coord[1])
@@ -222,60 +226,63 @@ class GridDisplay:
         ]
 
 
-    def check_event_queue(self, wait_ms = 0):
+    def _handle_key_events(self, key) -> bool:
+        needs_redraw = False
+        if key == pygame.K_ESCAPE:
+            raise MustQuit()
+        if key in FULLSCREEN_KEYS:
+            self.toggle_fullscreen()
+        elif key == pygame.K_PAGEUP:
+            self.current_zoom *= self.zoom_factor
+            self.dbg_info['current_zoom'] = self.current_zoom
+            self.pan_offset = (
+                self.pan_offset[0] * self.zoom_factor,
+                self.pan_offset[1] * self.zoom_factor)
+            needs_redraw = True
+        elif key == pygame.K_PAGEDOWN:
+            self.current_zoom /= self.zoom_factor
+            self.dbg_info['current_zoom'] = self.current_zoom
+            self.pan_offset = (
+                self.pan_offset[0] / self.zoom_factor,
+                self.pan_offset[1] / self.zoom_factor)
+            needs_redraw = True
+        elif key == pygame.K_LEFT:
+            self.pan_offset = (self.pan_offset[0] + self.pan_step, self.pan_offset[1])
+            needs_redraw = True
+        elif key == pygame.K_RIGHT:
+            self.pan_offset = (self.pan_offset[0] - self.pan_step, self.pan_offset[1])
+            needs_redraw = True
+        elif key == pygame.K_UP:
+            self.pan_offset = (self.pan_offset[0], self.pan_offset[1] + self.pan_step)
+            needs_redraw = True
+        elif key == pygame.K_DOWN:
+            self.pan_offset = (self.pan_offset[0], self.pan_offset[1] - self.pan_step)
+            needs_redraw = True
+        elif key == pygame.K_r:
+            self.pan_offset = (0.0, 0.0)
+            self.current_zoom = self.initial_zoom
+            needs_redraw = True
+        return needs_redraw
+
+
+    def check_event_queue(self, needs_redraw: bool = False, wait_ms: int = 0) -> None:
+        """Check the event queue, redraw the display if needed"""
         self.dbg_counters['calls_to_check_event_queue'] += 1
         for event in pygame.event.get():
-            needs_redraw = False
             if event.type == pygame.QUIT:
                 raise MustQuit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    raise MustQuit()
-                elif event.key in FULLSCREEN_KEYS:
-                    self.toggle_fullscreen()
-                elif event.key == pygame.K_PAGEUP:
-                    self.current_zoom *= self.zoom_factor
-                    self.pan_offset = (
-                        self.pan_offset[0] * self.zoom_factor,
-                        self.pan_offset[1] * self.zoom_factor)
-                    needs_redraw = True
-                elif event.key == pygame.K_PAGEDOWN:
-                    self.current_zoom /= self.zoom_factor
-                    self.pan_offset = (
-                        self.pan_offset[0] / self.zoom_factor,
-                        self.pan_offset[1] / self.zoom_factor)
-                    needs_redraw = True
-                elif event.key == pygame.K_LEFT:
-                    self.pan_offset = (self.pan_offset[0] + self.pan_step, self.pan_offset[1])
-                    needs_redraw = True
-                elif event.key == pygame.K_RIGHT:
-                    self.pan_offset = (self.pan_offset[0] - self.pan_step, self.pan_offset[1])
-                    needs_redraw = True
-                elif event.key == pygame.K_UP:
-                    self.pan_offset = (self.pan_offset[0], self.pan_offset[1] + self.pan_step)
-                    needs_redraw = True
-                elif event.key == pygame.K_DOWN:
-                    self.pan_offset = (self.pan_offset[0], self.pan_offset[1] - self.pan_step)
-                    needs_redraw = True
-                elif event.key == pygame.K_r:
-                    self.pan_offset = (0.0, 0.0)
-                    self.current_zoom = self.initial_zoom
-                    needs_redraw = True
-
-            if needs_redraw:
-                self._redraw_screen()
+                needs_redraw |= self._handle_key_events(event.key)
+        if needs_redraw:
+            self._redraw_screen()
         if wait_ms > 0:
             pygame.time.wait(wait_ms)
 
 
-    def update(self, zoom: float = 1.0, wait_ms: int = 0):
+    def update(self, wait_ms: int = 0) -> None:
+        """Force redrawing the display, and check the event queue"""
         self.dbg_counters['calls_to_update'] += 1
-        assert zoom > 0.0
-        if zoom != self.current_zoom:
-            self.current_zoom = zoom
-            self.dbg_info['current_zoom'] = self.current_zoom
-        self._redraw_screen()
-        self.check_event_queue(wait_ms)
+        self.check_event_queue(needs_redraw=True, wait_ms=wait_ms)
 
 
     def toggle_fullscreen(self):
