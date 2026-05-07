@@ -18,6 +18,8 @@ TILE_COLORS = {
 }
 UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
 FULLSCREEN_KEYS = [pygame.K_F11, pygame.K_f]
+DEFAULT_ZOOM_FACTOR = 1.1
+DEFAULT_PAN_STEP = 50.0      # in Pixels
 
 
 def init() -> None:
@@ -90,7 +92,7 @@ def draw_uniform_tile(color: tuple[int, int, int], size: int):
 def draw_game_tile(desc: str, size: int) -> Image:
     """
     Draw a simplified tile surface based on the tile description.
-    For instance : 'FPTP' means Fied, Path, Town and Path sides, rotating counter-clockwise
+    For instance: 'FPTP' means Fied, Path, Town and Path sides, rotating counter-clockwise
     """
     assert is_init()
     assert len(desc) == 4               # A tile has four sides
@@ -131,7 +133,8 @@ def format_32bit_flag(i):
 class GridDisplay:
     """A pygame display used to show a grid-type object"""
 
-    def __init__(self, w: int, h: int, fullscreen: bool, tile_size: int):
+    def __init__(self, w: int, h: int, fullscreen: bool, tile_size: int,
+                 *, initial_zoom: float = 1.0, zoom_factor: float = DEFAULT_ZOOM_FACTOR, pan_step: float = DEFAULT_PAN_STEP):
         assert tile_size > 0
         if not is_init():
             raise RuntimeError('Call graphics.init() prior to instantiating the grid display')
@@ -141,7 +144,11 @@ class GridDisplay:
         self.screen = self._init_screen()
         self.center = self.screen.get_rect().center
         self.tile_size = tile_size
-        self.current_zoom = 0.0
+        self.initial_zoom = initial_zoom
+        self.current_zoom = initial_zoom
+        self.zoom_factor = zoom_factor
+        self.pan_offset = (0.0, 0.0)
+        self.pan_step = pan_step
         self.tiles = {}
         self.bottomleft = (0, 0)
         self.topright = (0, 0)
@@ -173,7 +180,7 @@ class GridDisplay:
         self.dbg_counters['calls_to__blit'] += 1
         target_size = round(self.tile_size * self.current_zoom)
         scaled_img = pygame.transform.smoothscale(rotated_img, (target_size, target_size))
-        pos = scaled_img.get_rect().move(self.center).move((-0.5 + i) * target_size, (-0.5 - j) * target_size).topleft
+        pos = scaled_img.get_rect().move(self.center).move(self.pan_offset).move((-0.5 + i) * target_size, (-0.5 - j) * target_size).topleft
         self.screen.blit(scaled_img, pos)
 
 
@@ -204,15 +211,59 @@ class GridDisplay:
         self._blit(black_tile, i, j)
 
 
+    @staticmethod
+    def list_ui_controls():
+        return [
+            "Press 'F11' or 'F' to toggle fullscreen",
+            "Press the arrow keys to pan",
+            "Press 'PAGEUP' and 'PAGEDOWN' to zoom in and out",
+            "Press 'R' to reset the view to its initial state",
+            "Press 'ESCAPE' in the graphics window to quit",
+        ]
+
+
     def check_event_queue(self, wait_ms = 0):
         self.dbg_counters['calls_to_check_event_queue'] += 1
         for event in pygame.event.get():
+            needs_redraw = False
             if event.type == pygame.QUIT:
                 raise MustQuit()
-            if event.type == pygame.KEYUP and event.key == pygame.K_ESCAPE:
-                raise MustQuit()
-            if event.type == pygame.KEYUP and event.key in FULLSCREEN_KEYS:
-                self.toggle_fullscreen()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    raise MustQuit()
+                elif event.key in FULLSCREEN_KEYS:
+                    self.toggle_fullscreen()
+                elif event.key == pygame.K_PAGEUP:
+                    self.current_zoom *= self.zoom_factor
+                    self.pan_offset = (
+                        self.pan_offset[0] * self.zoom_factor,
+                        self.pan_offset[1] * self.zoom_factor)
+                    needs_redraw = True
+                elif event.key == pygame.K_PAGEDOWN:
+                    self.current_zoom /= self.zoom_factor
+                    self.pan_offset = (
+                        self.pan_offset[0] / self.zoom_factor,
+                        self.pan_offset[1] / self.zoom_factor)
+                    needs_redraw = True
+                elif event.key == pygame.K_LEFT:
+                    self.pan_offset = (self.pan_offset[0] + self.pan_step, self.pan_offset[1])
+                    needs_redraw = True
+                elif event.key == pygame.K_RIGHT:
+                    self.pan_offset = (self.pan_offset[0] - self.pan_step, self.pan_offset[1])
+                    needs_redraw = True
+                elif event.key == pygame.K_UP:
+                    self.pan_offset = (self.pan_offset[0], self.pan_offset[1] + self.pan_step)
+                    needs_redraw = True
+                elif event.key == pygame.K_DOWN:
+                    self.pan_offset = (self.pan_offset[0], self.pan_offset[1] - self.pan_step)
+                    needs_redraw = True
+                elif event.key == pygame.K_r:
+                    self.pan_offset = (0.0, 0.0)
+                    self.current_zoom = self.initial_zoom
+                    needs_redraw = True
+
+            if needs_redraw:
+                self._redraw_screen()
         if wait_ms > 0:
             pygame.time.wait(wait_ms)
 

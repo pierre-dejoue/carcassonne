@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 EXTRA_DEBUG_PRINTOUT = False
 DEFAUT_DISPLAY_W = 1280
 DEFAUT_DISPLAY_H = 720
+ZOOM_FACTOR = 1.1
+FRAME_PERIOD_MS = 100
 DEFAULT_TILE_SIZE = 100
 SCREENSHOT_PATH = './screenshot.jpg'
 DUMP_PATH = './dump.bmp'
@@ -731,16 +733,17 @@ def generate_map(args):
 
         # Open display
         w, h = DEFAUT_DISPLAY_W, DEFAUT_DISPLAY_H
-        display = graphics.GridDisplay(w, h, args.fullscreen, tile_size)
-        logger.info("Press 'F11' or 'F'' to toggle fullscreen")
-        logger.info("Press 'ESCAPE' in the graphics window to quit")
+        z = args.zoom_factor
+        pan_step = float(tile_size) / 2.0
+        display = graphics.GridDisplay(w, h, args.fullscreen, tile_size, initial_zoom=z, zoom_factor=ZOOM_FACTOR, pan_step=pan_step)
+        for ui_ctrl in graphics.GridDisplay.list_ui_controls():
+            logger.info('UI: %s', ui_ctrl)
 
         # Place random tiles. The map must grow!
         candidate_tiles = CandidateTiles(
             on_update = lambda pos_tile: display.set_tile(segment_length_tiles[pos_tile.get_segment_length()].img,
                                                           pos_tile.pos.x, pos_tile.pos.y) if args.debug_mode else None,
             on_delete = None)
-        z = args.zoom_factor
         border = Boundary()
         total_nb_tiles_placed = 0
         total_nb_tiles_not_placed = 0
@@ -810,7 +813,7 @@ def generate_map(args):
 
         # Wait until the user quits
         while True:
-            display.check_event_queue(200)
+            display.check_event_queue(FRAME_PERIOD_MS)
 
     except graphics.MustQuit:
         pass
@@ -830,7 +833,13 @@ def generate_map(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Display a randomized Carcassonne map')
+    tool_description = (
+        'Display a randomized Carcassonne map\n\n'
+        'UI Controls:\n\n'
+    )
+    for ui_ctrl in graphics.GridDisplay.list_ui_controls():
+        tool_description += ' - ' + ui_ctrl + '\n'
+    parser = argparse.ArgumentParser(description=tool_description, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('files', metavar='FILE', nargs='*',
                         help='Tile description file (JSON format)')
     parser.add_argument('-d', '--debug', dest='debug_mode', action='store_true',

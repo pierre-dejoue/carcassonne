@@ -20,12 +20,13 @@ A more elaborate example with the river tileset used a single time, excluding th
 python carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.5 resources/tileset_base.json resources/tileset_river.json
 ```
 
-## Controls
+## UI Controls
 
-In the display window:
-
-* Press 'F11' or 'F'' to toggle fullscreen
-* Press 'ESCAPE' to quit
+* Press 'F11' or 'F' to toggle fullscreen
+* Press the arrow keys to pan
+* Press 'PAGE_UP' and 'PAGE_DOWN' to zoom in and out
+* Press 'R' to reset the view to its initial state
+* Press 'ESCAPE' in the graphics window to quit
 
 ## Requirements
 
