@@ -737,7 +737,8 @@ def generate_map(args):
         w, h = DEFAUT_DISPLAY_W, DEFAUT_DISPLAY_H
         z = args.zoom_factor
         pan_step = float(tile_size) / 2.0
-        display = graphics.GridDisplay(w, h, args.fullscreen, tile_size, initial_zoom=z, zoom_factor=ZOOM_FACTOR, pan_step=pan_step)
+        display = graphics.GridDisplay(w, h, args.fullscreen, tile_size, window_caption='Carcassonne',
+                                       initial_zoom=z, zoom_factor=ZOOM_FACTOR, pan_step=pan_step)
         for ui_ctrl in graphics.GridDisplay.list_ui_controls():
             logger.info('UI: %s', ui_ctrl)
 

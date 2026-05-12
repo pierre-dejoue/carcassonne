@@ -142,7 +142,9 @@ class GridDisplay:
     """A pygame display used to show a grid-type object"""
 
     def __init__(self, w: int, h: int, fullscreen: bool, tile_size: int,
-                 *, initial_zoom: float = 1.0, zoom_factor: float = DEFAULT_ZOOM_FACTOR, pan_step: float = DEFAULT_PAN_STEP):
+                 *, window_caption: str = '',
+                    initial_zoom: float = 1.0, zoom_factor: float = DEFAULT_ZOOM_FACTOR,
+                    pan_step: float = DEFAULT_PAN_STEP):
         assert tile_size > 0
         if not is_init():
             raise RuntimeError('Call graphics.init() prior to instantiating the grid display')
@@ -150,6 +152,8 @@ class GridDisplay:
         self.h = h
         self.fullscreen = fullscreen
         self.screen: pygame.Surface = self._init_screen()
+        if window_caption:
+            pygame.display.set_caption(window_caption)
         self.center: tuple[int, int] = self.screen.get_rect().center
         self.tile_size = tile_size
         self.initial_zoom = initial_zoom
