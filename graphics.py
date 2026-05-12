@@ -1,7 +1,7 @@
 """
 Display the map on the screen
 
- - The backend is pygame
+ - The backend is pygame-ce
 """
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2020 Pierre DEJOUE
@@ -16,7 +16,7 @@ import pygame
 
 logger = logging.getLogger(__name__)
 
-
+GRAPHICS_BACKEND='pygame-ce'
 TILE_COLORS = {
     'F': pygame.Color(153, 187,  25),       # Field
     'T': pygame.Color(167, 122,  71),       # Town
@@ -31,7 +31,8 @@ DEFAULT_PAN_STEP = 50.0      # in Pixels
 
 def init() -> None:
     pygame.init()
-    logger.debug('Init pygame %s (SDL %d.%d.%d, Python %d.%d.%d)',
+    logger.debug('Init %s %s (SDL %d.%d.%d, Python %d.%d.%d)',
+        GRAPHICS_BACKEND,
         pygame.version.ver,
         *pygame.version.SDL,
         *sys.version_info[0:3]

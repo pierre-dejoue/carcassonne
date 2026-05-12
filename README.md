@@ -31,7 +31,7 @@ python carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.
 ## Requirements
 
 * __Python 3.x__: http://www.python.org/download/
-* __pygame__: https://www.pygame.org/
+* __pygame-ce__: https://pyga.me/
 
 Create a venv with the required packages:
 
