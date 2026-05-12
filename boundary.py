@@ -1,6 +1,8 @@
 """
 The boundary module is an abstract representation of the border of the map
 """
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2020 Pierre DEJOUE
 import functools
 import itertools
 import operator

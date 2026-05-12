@@ -2,6 +2,8 @@
 """
 This script displays a randomized Carcassonne map
 """
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2020 Pierre DEJOUE
 import argparse
 import functools
 import itertools

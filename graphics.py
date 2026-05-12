@@ -1,6 +1,10 @@
 """
 Display the map on the screen
+
+ - The backend is pygame
 """
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2020 Pierre DEJOUE
 import logging
 import os
 import sys
