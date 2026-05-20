@@ -254,9 +254,10 @@ class PlacedTile(PositionedTile):
 
 
     @override
-    def get_boundary(self):
-        desc = deque(self.tile.desc)
-        desc.rotate(self.r)
+    def get_boundary(self, desc = None):
+        if desc is None:
+            desc = deque(self.tile.desc)
+            desc.rotate(self.r)
         return PositionedTile.get_boundary(self, desc)
 
 
@@ -649,7 +650,7 @@ def find_candidate_placements(tile: Tile, border: Boundary, candidate_tiles: Can
             placed_tile = PlacedTile.from_positioned_tile(pos_tile, tile, r)
             if validate_tile_placement(placed_tile, border):
                 candidate_placements.append(placed_tile)
-        if max_candidates > 0 and len(candidate_placements) >= max_candidates:
+        if 0 < max_candidates <= len(candidate_placements):
             break
     return candidate_placements
 
