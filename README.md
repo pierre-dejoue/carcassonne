@@ -20,6 +20,16 @@ A more elaborate example with the river tileset used a single time, excluding th
 python carcassonne.py -n 800 --river-policy EXCLUDE_T --river-period 0 --zoom 0.5 resources/tileset_base.json resources/tileset_river.json
 ```
 
+### Export the map to a file
+
+For example, export the whole tile map to a PNG file. The exported image has a transparent background.
+
+```
+python carcassonne.py resources/tileset_base.json --export-map map.png
+```
+
+Other export formats are available: BMP, JPG, TGA.
+
 ## UI Controls
 
 * Press 'F11' or 'F' to toggle fullscreen

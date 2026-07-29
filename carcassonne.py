@@ -33,8 +33,7 @@ DEFAUT_DISPLAY_H = 720
 ZOOM_FACTOR = 1.1
 FRAME_PERIOD_MS = 100
 DEFAULT_TILE_SIZE = 100
-SCREENSHOT_PATH = './screenshot.jpg'
-DUMP_PATH = './dump.bmp'
+SCREENSHOT_PATH = './screenshot.bmp'
 
 
 class RiverPlacement(Enum):
@@ -823,12 +822,14 @@ def generate_map(args):
     finally:
         if 'display' in locals():
             logger.debug('Display: %s', str(display.get_debug_info()))
+            if args.export_map_to_file and len(args.export_map_to_file) > 0:
+                output_bitmap = args.export_map_to_file
+                display.export_map_to_file(output_bitmap, args.zoom_factor)
+                logger.info(f'Exported full map to {output_bitmap}')
             if args.take_screenshot or args.debug_mode:
-                display.take_screenshot(SCREENSHOT_PATH)
-                logger.info('Screenshot saved in %s', SCREENSHOT_PATH)
-            if args.dump_to_img:
-                display.dump_to_img(DUMP_PATH, args.zoom_factor)
-                logger.info('Dump grid to %s', DUMP_PATH)
+                output_bitmap = SCREENSHOT_PATH
+                display.take_screenshot(output_bitmap)
+                logger.info(f'Screenshot saved in {output_bitmap}')
         graphics.quit_window()
 
     return 0
@@ -854,10 +855,10 @@ if __name__ == "__main__":
                         help='Draw a simplified representation of the tiles')
     parser.add_argument('-f', '--full-screen', dest='fullscreen', action='store_true',
                         help='Full screen')
-    parser.add_argument('-s', '--screenshot', dest='take_screenshot', action='store_true',
-                        help='Take a screenshot of the final display')
-    parser.add_argument('--dump', dest='dump_to_img', action='store_true',
-                        help='Dump the final grid to an image')
+    parser.add_argument('--export-map', metavar='FILE', type=str, dest='export_map_to_file',
+                        help='Export the whole map to a file (Available formats: PNG, BMP, JPG, TGA)')
+    parser.add_argument('--screenshot', dest='take_screenshot', action='store_true',
+                        help=f'Take a screenshot of the final display ({SCREENSHOT_PATH})')
     parser.add_argument('--river-policy', type=str, dest='river_policy',
                         choices=[policy.name for policy in RiverPlacement], action='append', default=[],
                         help='Placement policies for the river tileset. This option can be used multiple times.')

@@ -24,6 +24,7 @@ TILE_COLORS = {
     'R': pygame.Color(0,   0,   200),       # River
 }
 UNKNOWN_DESC_COLOR = pygame.Color(255, 0, 0)
+DEFAULT_BACKGROUND_COLOR = pygame.Color(0, 0, 0, 0)
 FULLSCREEN_KEYS = [pygame.K_F11, pygame.K_f]
 DEFAULT_ZOOM_FACTOR = 1.1
 DEFAULT_PAN_STEP = 50.0      # in Pixels
@@ -181,9 +182,9 @@ class GridDisplay:
         return pygame.display.set_mode((self.w, self.h))
 
 
-    def _redraw_screen(self):
+    def _redraw_screen(self, back_color: pygame.Color = DEFAULT_BACKGROUND_COLOR):
         self.dbg_counters['calls_to__redraw_screen'] += 1
-        self.screen.fill(pygame.Color(0, 0, 0))
+        self.screen.fill(back_color)
         for coord, img in self.tiles.items():
             self._blit(img, coord[0], coord[1])
         pygame.display.flip()
@@ -313,18 +314,18 @@ class GridDisplay:
         return sorted(dbg.items())
 
 
-    def take_screenshot(self, img_path = 'screenshot.jpg'):
+    def take_screenshot(self, img_path: str):
         """Screenshot of the display"""
         pygame.image.save(self.screen, img_path)
 
 
-    def dump_to_img(self, img_path = 'dump.bmp', scale = 1.0):
+    def export_map_to_file(self, img_path: str, scale: float = 1.0, back_color: pygame.Color = DEFAULT_BACKGROUND_COLOR):
         """Dump the grid to an image"""
         width = 1 + self.topright[0] - self.bottomleft[0]
         height = 1 + self.topright[1] - self.bottomleft[1]
         target_tile_size = round(scale * self.tile_size)
-        dump_surf = pygame.Surface((width * target_tile_size, height * target_tile_size))
-        dump_surf.fill(pygame.Color(0, 0, 0))
+        dump_surf = pygame.Surface((width * target_tile_size, height * target_tile_size), flags=pygame.SRCALPHA)
+        dump_surf.fill(back_color)
         for coord, img in self.tiles.items():
             topleft = (target_tile_size * (coord[0] - self.bottomleft[0]), target_tile_size * (self.topright[1] - coord[1]))
             scaled_img = pygame.transform.smoothscale(img, (target_tile_size, target_tile_size))

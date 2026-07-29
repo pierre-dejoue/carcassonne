@@ -7,5 +7,5 @@ __pycache__/
 misc/
 resources/img_highres/
 resources/img_lowres/
-dump.bmp
-screenshot.jpg
+*.bmp
+*.png
