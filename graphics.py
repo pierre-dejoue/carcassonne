@@ -125,7 +125,7 @@ def draw_game_tile(desc: str, size: int) -> Image:
             polygon = path_polygon(x0, y0, x1, y1, xc, yc, 15)
         else:
             polygon = []
-        color = TILE_COLORS[quarter_desc] if quarter_desc in TILE_COLORS else UNKNOWN_DESC_COLOR
+        color = TILE_COLORS.get(quarter_desc, UNKNOWN_DESC_COLOR)
         if len(polygon) > 0:
             pygame.draw.polygon(tile, color, polygon)
     return Image(tile)
@@ -136,7 +136,7 @@ class MustQuit(Exception):
 
 
 def format_32bit_flag(i):
-    return '0x{:08X}'.format(i & 0xFFFFFFFF)
+    return f'0x{i & 0xFFFFFFFF:08X}'
 
 
 class GridDisplay:

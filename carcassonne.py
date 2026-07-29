@@ -18,7 +18,7 @@ import sys
 import traceback
 from collections import deque
 from enum import Enum, auto
-from typing import Any, List
+from typing import Any
 
 import boundary
 import graphics
@@ -80,14 +80,14 @@ class Tile:
 
     @classmethod
     def from_json_description(cls, json_obj, basedir):
-        assert 'description' in json_obj.keys()
+        assert 'description' in json_obj
         desc = json_obj['description']
-        max_nb = json_obj['cardinality'] if 'cardinality' in json_obj.keys() else 1
-        img_path = os.path.join(basedir, json_obj['img']) if 'img' in json_obj.keys() and json_obj['img'] else ''
+        max_nb = json_obj.get('cardinality', 1)
+        img_path = os.path.join(basedir, json_obj['img']) if json_obj.get('img') else ''
         tags = []
         for id in range(10):
             key = 'tag' + str(id)
-            if key in json_obj.keys():
+            if key in json_obj:
                 tags.append(json_obj[key])
         return cls(desc, max_nb, img_path, tags)
 
@@ -104,8 +104,8 @@ class Tile:
     def load_image(self):
         try:
             self.img = graphics.load_image(self.img_path)
-        except Exception as e:
-            logger.warning('Could not load image: %s (message: %s)', self.img_path, e)
+        except BaseException:
+            logger.exception('Could not load image: %s', self.img_path)
             self.img = None
 
 
@@ -128,7 +128,7 @@ def parse_tileset_description_file(json_file):
     try:
         with open(json_file, 'r', encoding='ascii') as fp:
             tileset_json = json.load(fp)
-            assert 'tiles' in tileset_json.keys()
+            assert 'tiles' in tileset_json
             for tile_json in tileset_json['tiles']:
                 tile = Tile.from_json_description(tile_json, os.path.dirname(json_file))
                 assert tile.max_nb >= 0
@@ -141,8 +141,8 @@ def parse_tileset_description_file(json_file):
         logger.warning('Could not load file %s', json_file)
     except AssertionError:
         handle_assertion_error()
-    except Exception:
-        logger.warning('Error parsing file %s', json_file)
+    except BaseException:
+        logger.exception('Error parsing file %s', json_file)
         raise
     finally:
         if fp is not None:
@@ -176,7 +176,7 @@ def load_or_draw_tile_images(tileset, draw_all = False):
 class PositionedTile:
     """Declare a position on the grid where a tile could be placed"""
 
-    def __init__(self, pos: Vect, segments: List[Any] | None = None):
+    def __init__(self, pos: Vect, segments: list[Any] | None = None):
         if segments is None:
             segments = []
         self.pos = pos
@@ -622,13 +622,13 @@ def update_border_and_candidate_tiles(placed_tile: PlacedTile,
     return placed_tile
 
 
-def select_tile_placement(candidate_placements: List[PlacedTile]):
+def select_tile_placement(candidate_placements: list[PlacedTile]):
     assert len(candidate_placements) > 0
     return candidate_placements[0]              # Nothing fancy
 
 
 def find_candidate_placements(tile: Tile, border: Boundary, candidate_tiles: CandidateTiles,
-                              max_candidates: int = -1, force_edge_label: str | None = None) -> List[PlacedTile]:
+                              max_candidates: int = -1, force_edge_label: str | None = None) -> list[PlacedTile]:
     assert len(border) > 0
     assert len(candidate_tiles) > 0
     candidate_placements = []
@@ -657,7 +657,7 @@ def find_candidate_placements(tile: Tile, border: Boundary, candidate_tiles: Can
 CARCASSONNE_CITY_NB_OF_TILES = 12
 
 
-def place_carcassonne_city(tileset: List[Any], candidate_tiles: CandidateTiles,
+def place_carcassonne_city(tileset: list[Any], candidate_tiles: CandidateTiles,
                            display: graphics.GridDisplay, pos: Vect, r: int = 0) -> tuple[Boundary, int]:
     assert len(tileset) > 0
     if len(tileset) != CARCASSONNE_CITY_NB_OF_TILES:
@@ -709,7 +709,7 @@ def generate_map(args):
 
     # River tiles placement policy and period
     river_placement_policies = parse_river_placement_policies([RiverPlacement[policy] for policy in args.river_policy])
-    river_tileset_period = args.river_period if args.river_period >= 0 else 0
+    river_tileset_period = max(args.river_period, 0)
     if any('river' in tile.tags for tile in tileset):
         logger.debug('river_placement_policies: %s', str([policy.name for policy in river_placement_policies]))
         logger.debug('river_tileset_period: %d', river_tileset_period)

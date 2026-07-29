@@ -7,7 +7,6 @@ import functools
 import itertools
 import operator
 from enum import Enum
-from typing import List
 
 
 class Vect:
@@ -186,7 +185,7 @@ class Boundary:
 
     def iter_all(self, starting_idx = 0):
         imod = starting_idx % len(self)
-        for idx in itertools.chain(range(imod, len(self)), range(0, imod)):
+        for idx in itertools.chain(range(imod, len(self)), range(imod)):
             yield (self.get_point(idx), self.get_edge(idx), self.get_label(idx))
 
 
@@ -250,8 +249,8 @@ class Boundary:
         # assert self.orientation() == other.orientation()
 
         # Identify common points and their respective indices. Those are considered "segments of length 0".
-        self_points = dict((p, i) for (i, p) in enumerate(self.points))
-        other_points = dict((p, i) for (i, p) in enumerate(other.points))
+        self_points = {p: i for (i, p) in enumerate(self.points)}
+        other_points = {p: i for (i, p) in enumerate(other.points)}
         common_points = set(self_points.keys()) & set(other_points.keys())
         common_segments_length_0 = sorted([(self_points[p], other_points[p], 0) for p in common_points])
 
@@ -349,7 +348,7 @@ def from_edge(point: Vect, edge: Vect, orientation: Orientation, domain: Domain)
     return border
 
 
-def get_tile(bottom_left: Vect, desc: List[Vect | None] | None = None) -> Boundary:
+def get_tile(bottom_left: Vect, desc: list[Vect | None] | None = None) -> Boundary:
     """Instantiate the boundary of a unit square tile given the coordinates of its bottom left corner and a description"""
     if desc is None:
         desc =  [None, None, None, None]
