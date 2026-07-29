@@ -737,10 +737,14 @@ def generate_map(args):
         w, h = DEFAUT_DISPLAY_W, DEFAUT_DISPLAY_H
         z = args.zoom_factor
         pan_step = float(tile_size) / 2.0
-        display = graphics.GridDisplay(w, h, args.fullscreen, tile_size, window_caption='Carcassonne',
+        display = graphics.GridDisplay(w, h, tile_size, window_caption='Carcassonne',
+                                       fullscreen=args.fullscreen, hiddenscreen=args.skip_ui,
                                        initial_zoom=z, zoom_factor=ZOOM_FACTOR, pan_step=pan_step)
-        for ui_ctrl in graphics.GridDisplay.list_ui_controls():
-            logger.info('UI: %s', ui_ctrl)
+        if args.skip_ui:
+            logger.info('The UI is hidden')
+        else:
+            for ui_ctrl in graphics.GridDisplay.list_ui_controls():
+                logger.info('UI: %s', ui_ctrl)
 
         # Place random tiles. The map must grow!
         candidate_tiles = CandidateTiles(
@@ -813,8 +817,9 @@ def generate_map(args):
         logger.info('total_nb_tiles_placed: %d', total_nb_tiles_placed)
 
         # Wait until the user quits
-        while True:
-            display.check_event_queue(FRAME_PERIOD_MS)
+        if not args.skip_ui:
+            while True:
+                display.check_event_queue(FRAME_PERIOD_MS)
 
     except graphics.MustQuit:
         pass
@@ -859,6 +864,8 @@ if __name__ == "__main__":
                         help='Export the whole map to a file (Available formats: PNG, BMP, JPG, TGA)')
     parser.add_argument('--screenshot', dest='take_screenshot', action='store_true',
                         help=f'Take a screenshot of the final display ({SCREENSHOT_PATH})')
+    parser.add_argument('--skip-ui', dest='skip_ui', action='store_true',
+                        help='Skip the UI (the window is hidden)')
     parser.add_argument('--river-policy', type=str, dest='river_policy',
                         choices=[policy.name for policy in RiverPlacement], action='append', default=[],
                         help='Placement policies for the river tileset. This option can be used multiple times.')

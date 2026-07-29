@@ -30,6 +30,12 @@ python carcassonne.py resources/tileset_base.json --export-map map.png
 
 Other export formats are available: BMP, JPG, TGA.
 
+One can skip the UI entirely and only export the map. For instance:
+
+```
+python carcassonne.py resources/tileset_base.json --export-map map.png --skip-ui
+```
+
 ## UI Controls
 
 * Press 'F11' or 'F' to toggle fullscreen

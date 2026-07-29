@@ -142,8 +142,10 @@ def format_32bit_flag(i):
 class GridDisplay:
     """A pygame display used to show a grid-type object"""
 
-    def __init__(self, w: int, h: int, fullscreen: bool, tile_size: int,
-                 *, window_caption: str = '',
+    def __init__(self, w: int, h: int, tile_size: int,
+                 *, fullscreen: bool = False,
+                    hiddenscreen: bool = False,
+                    window_caption: str = '',
                     initial_zoom: float = 1.0, zoom_factor: float = DEFAULT_ZOOM_FACTOR,
                     pan_step: float = DEFAULT_PAN_STEP):
         assert tile_size > 0
@@ -152,6 +154,7 @@ class GridDisplay:
         self.w = w
         self.h = h
         self.fullscreen = fullscreen
+        self.hiddenscreen = hiddenscreen
         self.screen: pygame.Surface = self._init_screen()
         if window_caption:
             pygame.display.set_caption(window_caption)
@@ -176,10 +179,13 @@ class GridDisplay:
 
 
     def _init_screen(self):
+        flags = 0
+        if self.hiddenscreen:
+            flags |= pygame.HIDDEN
         if self.fullscreen:
-            flags = pygame.FULLSCREEN | pygame.DOUBLEBUF
+            flags |= (pygame.FULLSCREEN | pygame.DOUBLEBUF)
             return pygame.display.set_mode((0, 0), flags=flags)
-        return pygame.display.set_mode((self.w, self.h))
+        return pygame.display.set_mode((self.w, self.h), flags=flags)
 
 
     def _redraw_screen(self, back_color: pygame.Color = DEFAULT_BACKGROUND_COLOR):
