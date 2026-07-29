@@ -176,7 +176,7 @@ class GridDisplay:
 
     def _init_screen(self):
         if self.fullscreen:
-            flags = pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF
+            flags = pygame.FULLSCREEN | pygame.DOUBLEBUF
             return pygame.display.set_mode((0, 0), flags=flags)
         return pygame.display.set_mode((self.w, self.h))
 
